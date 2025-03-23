@@ -281,10 +281,7 @@ class FantasyTeamOptimizer:
 
         # Solve the optimization problem with a fallback
         try:
-            cbc_path = "/opt/homebrew/bin/cbc"
-            prob.solve(
-                pulp.PULP_CBC_CMD(path=cbc_path, msg=0)
-            )  # Attempt to use CBC solver
+            prob.solve(pulp.PULP_CBC_CMD(msg=0))
         except AttributeError:
             logger.warning("CBC solver not found. Falling back to default solver.")
             prob.solve()  # Use default solver if CBC is unavailable
