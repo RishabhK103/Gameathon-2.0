@@ -36,7 +36,7 @@ class OverallPlayerForm:
         This version calculates form scores for matches between 2015 and 2024.
         """
         try:
-            with open("config.yaml", "r") as stream:
+            with open("../config.yaml", "r") as stream:
                 config = yaml.safe_load(stream)
         except Exception as e:
             print(Fore.RED + f"Error reading YAML config file: {e}")

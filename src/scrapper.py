@@ -1,385 +1,217 @@
-# Webscrapping ESPNcricinfo Cricket Data
-#
-# Author: Aditya Godse
-# Kaggle Notebook: https://www.kaggle.com/code/decentralized/webscrapping-espncricinfo-cricket-data
-#
-# This Python script scrapes cricket data from ESPNcricinfo, collecting stats
-# for batting, bowling, and fielding over a user-specified range of years.
-# It processes and cleans the data before saving it into CSV files. The script
-# is built with a simple command-line interface, real-time progress updates,
-# and clear reporting of data usage.
-#
-# For more details on how it works, check out the Kaggle notebook!
-#
-# ==============================================================================
-
-import click
-import requests
-import datetime
-from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import os
 import pandas as pd
 import numpy as np
-from tqdm import tqdm
-from colorama import Fore, Style, init
-import yaml
-import sys
-import os
+import time
+from selenium.common.exceptions import TimeoutException
+from datetime import datetime  # Import datetime for date parsing
 
-init(autoreset=True)
-with open("config.yaml", "r") as file:
-    config = yaml.safe_load(file)
+# Browser and driver setup
+brave_path = "/usr/bin/brave"
+chrome_driver_path = "/usr/bin/chromedriver"
+options = Options()
+options.binary_location = brave_path
+options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+options.add_argument("--headless")
+options.add_argument("--no-sandbox")
+options.add_argument("--disable-dev-shm-usage")
+service = Service(chrome_driver_path)
+driver = webdriver.Chrome(service=service, options=options)
 
-# This variable is a subset of the team codes found in the query menu’s
-# HTML source, specifically mapping referenced cricket teams to their
-# respective numeric IDs
-TEAM_CODES = {
-    "India": "6",
-    "Pakistan": "7",
-    "Bangladesh": "25",
-    "New Zealand": "5",
-    "England": "1",
-    "Australia": "2",
-    "Afghanistan": "40",
-    "South Africa": "3",
-}
+driver.set_page_load_timeout(300)
 
-# Base URL for web scrapping
-#
-# Without the User-Agent header, some websites may assume that the request
-# is coming from a bot or automated scraper. This could lead to the request
-# being blocked or flagged as suspicious. By passing a valid User-Agent
-# (e.g., one from a common browser like Chrome)
-# the website will treat the request as coming from a regular browser,
-# which reduces the likelihood of blocking it.
+# Function to parse a date string and return a datetime object
+def parse_date(date_string):
+    try:
+        return datetime.strptime(date_string, "%d %b %Y")
+    except ValueError:
+        print("Invalid date format. Please use DD MMM YYYY (e.g., 17 Feb 2023).")
+        return None
 
-BASE_URL = "https://stats.espncricinfo.com/ci/engine/stats/index.html"
-HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/91.0.4472.124 Safari/537.36"
-    )
-}
+# Function to get and validate user input for dates
+def get_date_input():
+    while True:
+        # Prompt for start date
+        start_date_str = input("Enter start date (e.g., 17 Feb 2023): ").strip()
+        start_date = parse_date(start_date_str)
+        if start_date is None:
+            continue  # Retry if parsing failed
 
+        # Prompt for end date
+        end_date_str = input("Enter end date (e.g., 22 Oct 2024): ").strip()
+        end_date = parse_date(end_date_str)
+        if end_date is None:
+            continue  # Retry if parsing failed
+
+        # Validate that end_date is after start_date
+        if end_date <= start_date:
+            print("End date must be after start date. Please try again.")
+            continue
+
+        # Format dates for the URL
+        spanmin1 = start_date.strftime("%d+%b+%Y")  # e.g., "17+Feb+2023"
+        spanmax1 = end_date.strftime("%d+%b+%Y")    # e.g., "22+Oct+2024"
+        return spanmin1, spanmax1
 
 class Scrapper:
-    def __init__(self, team_codes=TEAM_CODES, base_url=BASE_URL, headers=HEADERS):
-        self.team_codes = team_codes
-        self.base_url = base_url
-        self.headers = headers
-        self.total_downloaded_bytes = 0
-        self.downloaded_bytes = {
-            "batting": 0,
-            "bowling": 0,
-            "fielding": 0,
+    def __init__(self):
+        self.ipl_teams_codes = {
+            "KKR": "4341", "CSK": "4343", "MI": "4346", "RCB": "4340", "SRH": "5143",
+            "RR": "4345", "PBKS": "4342", "DC": "4344", "GT": "6904", "LSG": "6903"
+        }
+        # Get user-provided date range
+        self.spanmin1, self.spanmax1 = get_date_input()
+        # Define URL template with dynamic dates
+        self.url_template = "https://stats.espncricinfo.com/ci/engine/stats/index.html?class=6;spanmax1={spanmax1};spanmin1={spanmin1};spanval1=span;team={team};template=results;type={type}"
+        
+        self.base_urls = {
+            "bowling": self.url_template.format(spanmax1=self.spanmax1, spanmin1=self.spanmin1, team="4340", type="bowling"),
+            "batting": self.url_template.format(spanmax1=self.spanmax1, spanmin1=self.spanmin1, team="4340", type="batting"),
+            "fielding": self.url_template.format(spanmax1=self.spanmax1, spanmin1=self.spanmin1, team="4340", type="fielding")
+        
         }
 
-    def generate_time_spans(self, start_year, end_year):
-        """Generate a list of (start_date, end_date) tuples for each month between start_year and end_year.
-        For the current month, the end date is set to yesterday's date."""
-        current_date = datetime.datetime.now()
-        today = current_date.date()
-        current_year = current_date.year
-        current_month = current_date.month
-        time_spans = []
-
-        for year in range(start_year, end_year + 1):
-            if year == end_year:
-                if end_year == current_year:
-                    months = current_month
-                else:
-                    months = 12
-            else:
-                months = 12
-
-            for month in range(1, months + 1):
-                try:
-                    start_date = datetime.date(year, month, 1)
-                    if year == current_year and month == current_month:
-                        end_date = today - datetime.timedelta(days=1)
-                    else:
-                        if month == 12:
-                            end_date = datetime.date(year + 1, 1, 1)
-                        else:
-                            end_date = datetime.date(year, month + 1, 1)
-                    time_spans.append(
-                        (start_date.strftime("%d+%b+%Y"), end_date.strftime("%d+%b+%Y"))
-                    )
-                except Exception as e:
-                    print(f"Error generating dates for {year}-{month}: {e}")
-        return time_spans
-
-    def extract_player_data(self, html):
-        """Extract player data from the HTML using BeautifulSoup and return a DataFrame."""
-        soup = BeautifulSoup(html, "html.parser")
-
-        def caption_match(tag_text):
-            return tag_text and "overall figures" in tag_text.lower()
-
-        target_table = None
-        for table in soup.find_all("table", {"class": "engineTable"}):
-            caption = table.find("caption")
-            if caption and caption_match(caption.get_text(strip=True)):
-                target_table = table
-                break
-
-        if not target_table:
-            return None
-
-        try:
-            thead = target_table.find("thead")
-            tbody = target_table.find("tbody")
-            if not thead or not tbody:
-                return None
-
-            headers = [th.get_text(strip=True) for th in thead.find_all("th")]
-            rows = []
-            for row in tbody.find_all("tr", {"class": "data1"}):
-                cells = [td.get_text(strip=True) for td in row.find_all("td")]
-                rows.append(cells)
-
-            if not rows:
-                return None
-
-            return pd.DataFrame(rows, columns=headers)
-        except Exception as e:
-            print(f"{Fore.RED}Error parsing table: {e}{Style.RESET_ALL}")
-            return None
-
-    def _format_bytes(self, num_bytes):
-        """Format bytes into a human-readable string (B, KB, or MB)."""
-        if num_bytes < 1024:
-            return f"{num_bytes} B"
-        elif num_bytes < 1024 * 1024:
-            return f"{num_bytes / 1024:.2f} KB"
-        else:
-            return f"{num_bytes / (1024 * 1024):.2f} MB"
-
-    def scrape_player_data(self, player_type, time_spans):
-        """
-        Scrape data for the given player type (batting, bowling, or fielding)
-        across all time spans and teams. The downloaded bytes are tracked separately
-        for each process.
-        """
-        df = pd.DataFrame()
-        total_iterations = len(time_spans) * len(self.team_codes)
-        progress_bar_format = (
-            "{l_bar}{bar} | "
-            f"{Fore.GREEN}Elapsed: "
-            + "{elapsed}"
-            + f"{Style.RESET_ALL} | "
-            + "{postfix}"
-        )
-
-        self.downloaded_bytes[player_type] = 0
-
-        with tqdm(
-            total=total_iterations,
-            desc=f"{Fore.CYAN}Scraping {player_type}{Style.RESET_ALL}",
-            unit="req",
-            bar_format=progress_bar_format,
-            colour="magenta",
-        ) as pbar:
-            pbar.set_postfix_str(
-                f"{Fore.YELLOW}Data Fetched: {self._format_bytes(0)}{Style.RESET_ALL}"
-            )
-            for start_date, end_date in time_spans:
-                for team_name, team_code in self.team_codes.items():
-                    try:
-                        params = [
-                            ("class", "2"),
-                            ("filter", "advanced"),
-                            (
-                                "orderby",
-                                (
-                                    "runs"
-                                    if player_type == "batting"
-                                    else (
-                                        "wickets" if player_type == "bowling" else "dis"
-                                    )
-                                ),
-                            ),
-                            ("spanmin1", start_date),
-                            ("spanmax1", end_date),
-                            ("spanval1", "span"),
-                            ("team", team_code),
-                            ("template", "results"),
-                            ("type", player_type),
-                        ]
-                        response = requests.get(
-                            self.base_url,
-                            params=dict(params),
-                            headers=self.headers,
-                            timeout=15,
-                        )
-                        response.raise_for_status()
-
-                        content_length = len(response.content)
-                        # Update counters.
-                        self.downloaded_bytes[player_type] += content_length
-                        self.total_downloaded_bytes += content_length
-
-                        data = self.extract_player_data(response.text)
-                        if data is not None and not data.empty:
-                            data["Team"] = team_name
-                            data["Start Date"] = start_date
-                            data["End Date"] = end_date
-                            df = pd.concat([df, data], ignore_index=True)
-                    except requests.exceptions.RequestException as re:
-                        print(
-                            f"{Fore.RED}Request error for {team_name} ({start_date} to {end_date}): {re}{Style.RESET_ALL}"
-                        )
-                    except Exception as e:
-                        print(f"{Fore.RED}Unexpected error: {e}{Style.RESET_ALL}")
-                    finally:
-                        pbar.set_postfix_str(
-                            f"{Fore.YELLOW}Data Fetched: {self._format_bytes(self.downloaded_bytes[player_type])}{Style.RESET_ALL}"
-                        )
-                        pbar.update(1)
-
-        return df
+        self.output_files = {
+            "batting": "../data/ipl/batting_averages.csv",
+            "bowling": "../data/ipl/bowling_averages.csv",
+            "fielding" : "../data/ipl/fielding_averages.csv"
+        }
 
     def clean_data(self, df, data_type):
-        """Clean and convert the data types of the DataFrame based on data_type."""
         if df is None or df.empty:
+            print(f"No data to clean for {data_type}")
             return df
-
         try:
-            df.replace("-", np.nan, inplace=True)
-
+            rename_dict = {"HS": "HighestScore", "Mdns": "Maidens", "Wkts": "Wickets", "Econ": "Economy", "BBI": "BestBowling"}
+            df.rename(columns=rename_dict, inplace=True)
+            df.replace(["-", "", " "], np.nan, inplace=True)
+            if "Player" in df.columns:
+                df["Player"] = df["Player"].str.strip()
             if data_type == "batting":
-                if "HS" in df.columns:
-                    df["HS"] = df["HS"].str.replace("*", "", regex=False)
-                int_cols = [
-                    "Mat",
-                    "Inns",
-                    "NO",
-                    "Runs",
-                    "BF",
-                    "100",
-                    "50",
-                    "0",
-                    "4s",
-                    "6s",
-                ]
+                if "HighestScore" in df.columns:
+                    df["HighestScore"] = df["HighestScore"].str.replace("*", "", regex=False)
+                int_cols = ["Mat", "Inns", "NO", "Runs", "BF", "100", "50", "0", "4s", "6s"]
                 float_cols = ["Ave", "SR"]
             elif data_type == "bowling":
-                int_cols = ["Mat", "Inns", "Mdns", "Runs", "Wkts", "4", "5"]
-                float_cols = ["Ave", "Econ", "SR"]
-            elif data_type == "fielding":
-                int_cols = ["Mat", "Inns", "Dis", "Ct", "St", "Wk", "Fi"]
-                float_cols = ["D/I"]
+                int_cols = ["Mat", "Inns", "Maidens", "Runs", "Wickets", "4", "5"]
+                float_cols = ["Ave", "Economy", "SR"]
             else:
-                return df
-
+                int_cols = []
+                float_cols = []
             for col in int_cols:
                 if col in df.columns:
                     df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int64")
-
             for col in float_cols:
                 if col in df.columns:
                     df[col] = pd.to_numeric(df[col], errors="coerce").astype(float)
-
-            date_cols = ["Start Date", "End Date"]
-            for col in date_cols:
-                if col in df.columns:
-                    df[col] = pd.to_datetime(
-                        df[col], format="%d+%b+%Y", errors="coerce"
-                    )
         except Exception as e:
-            print(
-                f"{Fore.RED}Error cleaning data for {data_type}: {e}{Style.RESET_ALL}"
-            )
-
+            print(f"Error cleaning data for {data_type}: {e}")
         return df
 
+    def scrape_and_clean(self):
+        for file_path in self.output_files.values():
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
-@click.command()
-@click.option(
-    "--start_year",
-    prompt="Start year",
-    type=int,
-    help="Starting year for data collection",
-)
-@click.option(
-    "--end_year", prompt="End year", type=int, help="Ending year for data collection"
-)
-def scrapeData(start_year, end_year):
-    """Main entry point: generate time spans, scrape data for all player types, and save to CSV."""
-    try:
-        current_year = datetime.datetime.now().year
-        if start_year > end_year:
-            raise ValueError("Start year cannot be after end year")
-        if start_year < 1970 or end_year > current_year:
-            raise ValueError(f"Years must be between 1970 and {current_year}")
+        # Test phase
+        test_data_type = "batting"
+        test_url = self.base_urls[test_data_type]
+        test_headers = ["Team", "Player", "Mat", "Inns", "NO", "Runs", "HighestScore", "Ave", "BF", "SR", "100", "50", "0", "4s", "6s"]
 
-        print(
-            f"\n{Fore.GREEN}Generating time spans from {start_year} to {end_year}...{Style.RESET_ALL}"
-        )
-        scrapper = Scrapper()
-        time_spans = scrapper.generate_time_spans(start_year, end_year)
-
-        print(time_spans)
-
-        print(f"{Fore.GREEN}Starting scraping process...{Style.RESET_ALL}")
-
-        output_dir = config["data"]["web_scrapper_output"]
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-
-        process_totals = {}
-        data_frames = {}
-
-        for data_type in ["batting", "bowling", "fielding"]:
-            print(
-                f"\n{Fore.MAGENTA}=== Processing {data_type} data ==={Style.RESET_ALL}"
+        print(f"\nTesting hardcoded URL for {test_data_type}: {test_url}")
+        test_data = []
+        try:
+            driver.get(test_url)
+            table = WebDriverWait(driver, 30).until(
+                EC.presence_of_element_located((
+                    By.XPATH, 
+                    "//table[@class='engineTable'][.//caption[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'overall figures')]]"
+                ))
             )
-            df = scrapper.scrape_player_data(data_type, time_spans)
-            process_total = scrapper._format_bytes(scrapper.downloaded_bytes[data_type])
-            process_totals[data_type] = process_total
+            rows = table.find_elements(By.TAG_NAME, "tr")[1:]
+            for row in rows:
+                cells = row.find_elements(By.TAG_NAME, "td")
+                if cells:
+                    cell_data = [cell.text for cell in cells if cell.text.strip()]
+                    row_data = ["RCB"] + cell_data
+                    test_data.append(row_data)
+            print(f"Successfully scraped {len(test_data)} rows for {test_data_type} from RCB:")
+            print(f"Sample row: {test_data[0]}")
+            print(f"Number of columns in data: {len(test_data[0])}")
+            df_test = pd.DataFrame(test_data, columns=test_headers)
+            print(df_test.head())
+        except TimeoutException as e:
+            print(f"Timeout while testing {test_url}: {e}")
+            with open("timeout_page.html", "w", encoding="utf-8") as f:
+                f.write(driver.page_source)
+            print("Page source saved to 'timeout_page.html' for debugging.")
+            driver.quit()
+            return
+        except Exception as e:
+            print(f"Error testing {test_url}: {e}")
+            driver.quit()
+            return
 
-            if df is not None and not df.empty:
-                df = scrapper.clean_data(df, data_type)
-                print(f"{Fore.GREEN}Collected {len(df)} {data_type} records")
-                data_frames[data_type] = df
-            else:
-                print(f"{Fore.YELLOW}No {data_type} data collected{Style.RESET_ALL}")
+        # Confirmation
+        proceed = input("\nDoes the test data look correct? (yes/no): ").strip().lower()
+        if proceed != "yes":
+            print("Aborting full scrape.")
+            driver.quit()
+            return
 
-            print(
-                f"{Fore.CYAN}{data_type.capitalize()} data downloaded: {process_total}{Style.RESET_ALL}"
-            )
+        # Full scrape
+        print("\nProceeding with full scrape...")
+        for data_type, base_url in self.base_urls.items():
+            output_file = self.output_files[data_type]
+            if data_type == "batting":
+                headers = ["Team", "Player", "Mat", "Inns", "NO", "Runs", "HighestScore", "Ave", "BF", "SR", "100", "50", "0", "4s", "6s"]
+            else:  # Bowling
+                headers = ["Team", "Player", "Mat", "Inns", "Overs", "Maidens", "Runs", "Wickets", "BestBowling", "Ave", "Economy", "SR", "4", "5"]
+            all_data = []
+            for team, code in self.ipl_teams_codes.items():
+                retries = 3
+                for attempt in range(retries):
+                    try:
+                        # Dynamically update the team code in the URL
+                        url = self.url_template.format(spanmax1=self.spanmax1, spanmin1=self.spanmin1, team=code, type=data_type)
+                        driver.get(url)
+                        table = WebDriverWait(driver, 30).until(
+                            EC.presence_of_element_located((
+                                By.XPATH, 
+                                "//table[@class='engineTable'][.//caption[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'overall figures')]]"
+                            ))
+                        )
+                        rows = table.find_elements(By.TAG_NAME, "tr")[1:]
+                        for row in rows:
+                            cells = row.find_elements(By.TAG_NAME, "td")
+                            if not cells:
+                                continue
+                            cell_data = [cell.text for cell in cells if cell.text.strip()]
+                            row_data = [team] + cell_data
+                            all_data.append(row_data)
+                        print(f"Scraped {data_type} averages for {team}")
+                        break
+                    except TimeoutException as e:
+                        print(f"Timeout for {team} ({data_type}) on attempt {attempt + 1}/{retries}: {e}")
+                        if attempt == retries - 1:
+                            print(f"Failed to scrape {data_type} data for {team} after {retries} attempts.")
+                        time.sleep(5)
+                    time.sleep(1)
 
-        for data_type, df in data_frames.items():
-            csv_path = os.path.join(output_dir, f"{data_type}_data.csv")
-            try:
-                df.to_csv(csv_path, index=False)
-                print(
-                    f"{Fore.GREEN}Saved {data_type} data to {csv_path}{Style.RESET_ALL}"
-                )
-            except Exception as e:
-                print(f"{Fore.RED}Error saving {data_type} data: {e}{Style.RESET_ALL}")
+            if not all_data:
+                print(f"No data scraped for {data_type}")
+                continue
 
-        overall_total = scrapper._format_bytes(scrapper.total_downloaded_bytes)
-        print(f"\n{Fore.CYAN}Scraping completed successfully!{Style.RESET_ALL}")
-        print(
-            f"Total data downloaded overall: {Fore.YELLOW}{overall_total}{Style.RESET_ALL}"
-        )
+            df = pd.DataFrame(all_data, columns=headers)
+            df = self.clean_data(df, data_type)
+            df.to_csv(output_file, index=False)
+            print(f"Saved cleaned {data_type} data to {output_file}")
 
-        for key, value in process_totals.items():
-            print(
-                f" - {key.capitalize()} data downloaded: {Fore.YELLOW}{value}{Style.RESET_ALL}"
-            )
-    except KeyboardInterrupt:
-        print(f"\n{Fore.RED}Operation cancelled by user.{Style.RESET_ALL}")
-        sys.exit(1)
-    except Exception as e:
-        print(f"{Fore.RED}Fatal error: {e}{Style.RESET_ALL}")
-        sys.exit(1)
+scrapper = Scrapper()
+scrapper.scrape_and_clean()
 
-
-if __name__ == "__main__":
-    try:
-        scrapeData()
-    except KeyboardInterrupt:
-        print(f"\n{Fore.RED}Operation cancelled by user{Style.RESET_ALL}")
-        sys.exit(1)
+driver.quit()

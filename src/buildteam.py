@@ -13,7 +13,7 @@ class FantasyTeamOptimizer:
     def __init__(self):
         """Initialize configuration and placeholders for dataframes."""
         try:
-            with open("config.yaml", "r") as stream:
+            with open("../config.yaml", "r") as stream:
                 config = yaml.safe_load(stream)
         except Exception as e:
             logger.error(f"Error reading YAML config file: {e}")
