@@ -123,14 +123,23 @@ class FantasyTeamOptimizer:
           - Wicket Keeper: Score = keeper_weight * Batting Form
         """
         role = row["Role"].strip()
+        batting_form = row["Batting Form"]
+        bowling_form = row["Bowling Form"]
+
         if role == "Batsmen":
             return self.config["algorithm"]["batter_weight"] * row["Batting Form"]
         elif role == "Bowler":
             return self.config["algorithm"]["bowler_weight"] * row["Bowling Form"]
         elif role == "All Rounder":
-            return self.config["algorithm"]["allrounder_weight"] * (
-                (row["Batting Form"] + row["Bowling Form"]) / 2
+            total_form = batting_form + bowling_form
+            if total_form > 0:
+                batting_ratio = batting_form / total_form
+            else:
+                batting_ratio = 0.5
+            score = self.config["algorithm"]["allrounder_weight"] * (
+                batting_ratio * batting_form + (1 - batting_ratio) * bowling_form
             )
+            return score
         elif role == "Wicket Keeper":
             return self.config["algorithm"]["keeper_weight"] * row["Batting Form"]
         else:

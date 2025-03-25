@@ -29,7 +29,7 @@ class PlayerForm:
         self.fielding_file = "../data/ipl/fielding_averages.csv"
         self.output_file = "../data/ipl/player_form_scores.csv"
         self.squad_file = config["data"].get("squad_file", "../data/ipl/squad.csv")
-        self.previous_months = config["data"].get("previous_months", 24)
+        self.previous_months = config["data"].get("previous_months", 36)
         self.decay_rate = config["data"].get("decay_rate", 0.1)
         self.key_cols = ["Player", "Team", "Span", "Mat"]  # Adjusted to use Span instead of Start/End Date
 

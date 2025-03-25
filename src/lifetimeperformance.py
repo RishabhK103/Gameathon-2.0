@@ -312,7 +312,7 @@ class OverallPlayerForm:
         df = self.load_data()
         filtered_df = self.filter_players_by_squad(df)
         form_scores = self.calculate_form(filtered_df)
-        print(Fore.GREEN + "\n\nForm scores calculated successfully (2015 - 2024)")
+        print(Fore.GREEN + "\n\nForm scores calculated successfully (2021 - 2024)")
         form_scores.to_csv(self.output_file, index=False)
 
 
