@@ -44,3 +44,7 @@ ga:
   generations: 100
   tournament_size: 3
   mutation_rate: 0.1
+
+match:
+  1: "RCB"
+  2

@@ -325,3 +325,6 @@ output
 *.tar
 
 sinister6*
+
+
+/notebooks/
