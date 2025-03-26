@@ -4,7 +4,7 @@ from fuzzywuzzy import fuzz
 def normalize_columns(df):
     df.columns = df.columns.str.lower().str.strip().str.replace(" ", "_")
     numeric_cols = ["mat", "inns", "no", "runs", "bf", "100", "50", "0", "4s", "6s", "hs",
-                    "overs", "mdns", "wkts", "4", "5", "dis", "ct", "st", "ct_wk", "ct_fi", "md"]
+                    "overs", "mdns", "wkts", "4", "5", "dis", "ct", "st", "ct_wk", "ct_fi", "md", "credits"]
     for col in numeric_cols:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
@@ -17,7 +17,7 @@ def match_player_names(squad_names, historical_names):
         best_score = 0
         for hist_name in historical_names:
             score = fuzz.token_sort_ratio(squad_name, hist_name)
-            if score > best_score and score > 70:  # Lowered threshold from 80 to 70
+            if score > best_score and score > 70:
                 best_score = score
                 best_match = hist_name
         if best_match:
@@ -50,7 +50,8 @@ def aggregate_batting(df):
 
 def aggregate_bowling(df):
     df = normalize_columns(df)
-    df.fillna({"mat": 0, "inns": 0, "overs": 0, "mdns": 0, "runs": 0, "wkts": 0, "4": 0, "5": 0, "bbi": "0/0"}, inplace=True)
+    # Fill NaN with 0 for all numeric columns
+    df.fillna({"mat": 0, "inns": 0, "overs": 0, "mdns": 0, "runs": 0, "wkts": 0, "4": 0, "5": 0}, inplace=True)
     df["bbi_wickets"] = df["bbi"].apply(parse_bbi)
     bowling_agg = df.groupby("player").agg({
         "mat": "sum", "inns": "sum", "overs": "sum", "mdns": "sum", "runs": "sum",
@@ -134,6 +135,3 @@ def preprocess_data(batting_file, bowling_file, fielding_file, squad_file, outpu
 
     full_df.to_csv(output_file, index=False)
     return full_df
-
-if __name__ == "__main__":
-    preprocess_data("../data/batting_averages.csv", "../data/bowling_averages.csv", "../data/fielding_averages.csv", "../data/squad.csv", "../data/merged_data.csv")
