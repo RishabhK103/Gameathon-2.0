@@ -1,0 +1,12 @@
+player_name,team,player_type,runs_per_mat,wkts_per_mat,dis_per_mat,credits,role
+Glenn Maxwell,PBKS,ALL,25.0,1.0,0.25,8.5,Player
+Marcus Stoinis,PBKS,ALL,25.0,1.0,0.25,8.0,Vice-Captain
+Rahul Tewatia,GT,ALL,25.0,1.0,0.25,7.0,Captain
+Prabhsimran Singh,PBKS,WK,20.0,0.0,1.0,7.5,Player
+Shreyas Iyer,PBKS,BAT,30.0,0.0,0.25,8.5,Player
+Shubman Gill,GT,BAT,30.0,0.0,0.25,9.0,Player
+Sai Sudharsan,GT,BAT,30.0,0.0,0.25,8.0,Player
+Yuzvendra Chahal,PBKS,BOWL,5.0,1.75,0.25,8.5,Player
+Prasidh Krishna,GT,BOWL,5.0,1.75,0.25,7.5,Player
+Rashid-Khan,GT,BOWL,5.0,1.75,0.25,9.0,Player
+Mohammed Siraj,GT,BOWL,5.0,1.75,0.25,8.0,Player
