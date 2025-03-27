@@ -276,10 +276,55 @@ def optimize_team(match_df, output_file):
             max_score = score
             selected_solution = sol
     
+    # Reassign captain and vice-captain based on contribution score
+    team_df = selected_solution["team"].copy()
+    
+    # Reset all roles to "Player" to avoid duplicates
+    team_df["role"] = "Player"
+    
+    # Calculate contribution score for each selected player
+    team_df["contribution_score"] = (
+        0.5 * team_df["runs_per_mat"] +
+        0.3 * team_df["wkts_per_mat"] +
+        0.2 * team_df["dis_per_mat"]
+    )
+    
+    # Sort by contribution score to find the top two players
+    sorted_team = team_df.sort_values(by="contribution_score", ascending=False)
+    
+    # Assign captain to the player with the highest score
+    captain_idx = sorted_team.index[0]
+    team_df.loc[captain_idx, "role"] = "Captain"
+    
+    # Assign vice-captain to the player with the second-highest score
+    vice_captain_idx = sorted_team.index[1]
+    team_df.loc[vice_captain_idx, "role"] = "Vice-Captain"
+    
+    # Recalculate total scores with new captain and vice-captain
+    total_runs = 0
+    total_wkts = 0
+    total_dis = 0
+    for idx, row in team_df.iterrows():
+        multiplier = 1
+        if row["role"] == "Captain":
+            multiplier = 2
+        elif row["role"] == "Vice-Captain":
+            multiplier = 1.5
+        total_runs += row["runs_per_mat"] * multiplier
+        total_wkts += row["wkts_per_mat"] * multiplier
+        total_dis += row["dis_per_mat"] * multiplier
+    
+    # Remove the temporary contribution_score column
+    team_df = team_df.drop(columns=["contribution_score"])
+    
     # Save the selected solution
-    team_df = selected_solution["team"]
     team_df.to_csv(output_file, index=False)
+    
+    # Print the selected team with total scores
     print(f"\nSelected Dream11 Team for {team1} vs {team2} (Balanced Solution):")
+    print(f"Total runs_per_mat: {total_runs:.2f}")
+    print(f"Total wkts_per_mat: {total_wkts:.2f}")
+    print(f"Total dis_per_mat: {total_dis:.2f}")
     print(team_df)
     
     return pareto_solutions
