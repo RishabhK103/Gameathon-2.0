@@ -1,6 +1,5 @@
 import pandas as pd
 import pulp
-from io import StringIO
 
 # ============================================================
 # Adjustable Parameters (Defaults, will be adjusted by ground)
@@ -16,9 +15,24 @@ keeper_weight = 1.0  # Weight for keepers
 ground_df = pd.read_csv("data/ground.csv")
 
 # ============================================================
-# 1. Load Player Data
+# 1. Load Player Data from Provided CSV
 # ============================================================
-df = pd.read_csv('data/player_form_scores(3).csv')
+squad_df = pd.read_csv("data/SquadPlayerNames_7.csv")
+
+# Filter for playing players (PLAYING or X_FACTOR_SUBSTITUTE)
+playing_players = squad_df[squad_df["IsPlaying"].isin(["PLAYING", "X_FACTOR_SUBSTITUTE"])]
+
+# Load form scores and merge with playing players
+form_df = pd.read_csv('data/player_form_scores(3).csv')
+df = pd.merge(playing_players, form_df, left_on="Player Name", right_on="Player", how="left")
+
+# Select and rename relevant columns
+df = df[["Player Name", "Team_x", "Player Type_x", "Batting Form", "Bowling Form"]]
+df.columns = ["Player", "Team", "Player Type", "Batting Form", "Bowling Form"]
+
+# Handle potential missing form scores by filling with 0 (or adjust as needed)
+df["Batting Form"] = df["Batting Form"].fillna(0)
+df["Bowling Form"] = df["Bowling Form"].fillna(0)
 
 # ============================================================
 # 2. Corrected Score Calculation (Case-Insensitive Role Check)
@@ -57,8 +71,12 @@ def optimize_team(team1, team2, total_players=11, team1_weight=1.0, team2_weight
     allrounders = team_df[team_df["Player Type"].str.strip().str.upper() == "ALL"]
     keepers = team_df[team_df["Player Type"].str.strip().str.upper() == "WK"]
     
-    if len(batters) < 4 or len(bowlers) < 3 or len(keepers) < 1:
+    # Players capable of bowling (bowlers + all-rounders)
+    bowling_options = pd.concat([bowlers, allrounders])
+    
+    if len(batters) < 2 or len(bowlers) < 3 or len(bowling_options) < 5 or len(keepers) < 1:
         print("Not enough players for constraints. Relaxing requirements.")
+        print(f"Available batters: {len(batters)}, bowlers: {len(bowlers)}, bowling options: {len(bowling_options)}, keepers: {len(keepers)}")
         return None
     
     prob = pulp.LpProblem("FantasyTeam", pulp.LpMaximize)
@@ -72,8 +90,9 @@ def optimize_team(team1, team2, total_players=11, team1_weight=1.0, team2_weight
     prob += pulp.lpSum([x[i] for i in players]) == total_players, "Total_Players"
     
     # Role constraints
-    prob += pulp.lpSum([x[i] for i in batters.index]) >= 4, "Min_Batters"
-    prob += pulp.lpSum([x[i] for i in bowlers.index]) >= 3, "Min_Bowlers"
+    prob += pulp.lpSum([x[i] for i in batters.index]) >= 2, "Min_Batters"
+    prob += pulp.lpSum([x[i] for i in bowlers.index]) >= 2, "Min_Bowlers"
+    prob += pulp.lpSum([x[i] for i in bowling_options.index]) >= 5, "Min_Bowling_Options"
     prob += pulp.lpSum([x[i] for i in keepers.index]) >= 1, "Min_Keepers"
     
     # Team constraints
@@ -126,7 +145,7 @@ if __name__ == "__main__":
     # Get ground-specific weights
     ground_data = ground_df.iloc[ground_index]
     batter_weight = float(ground_data["Batting"])
-    keeper_weight=float(ground_data["Batting"])
+    keeper_weight = float(ground_data["Batting"])
     bowler_weight = float(ground_data["Bowling"])
     
     print(f"\nSelected Ground: {selected_ground}")
@@ -136,10 +155,10 @@ if __name__ == "__main__":
     # Recalculate scores with ground-adjusted weights
     df["Score"] = df.apply(calculate_score, axis=1)
     
-    # Define teams and team weights
+    # Define teams and team weights (updated to match CSV)
     home_team1 = "SRH"
     away_team2 = "LSG"
-    team1_weight = 1.05 
+    team1_weight = 1.05  # Slight home advantage
     team2_weight = 1.0  
     
     # Optimize team

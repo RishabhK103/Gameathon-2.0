@@ -1,6 +1,5 @@
 import pandas as pd
 import pulp
-from io import StringIO
 
 # ============================================================
 # Adjustable Parameters (Defaults, will be adjusted by ground)
@@ -57,8 +56,12 @@ def optimize_team(team1, team2, total_players=11, team1_weight=1.0, team2_weight
     allrounders = team_df[team_df["Player Type"].str.strip().str.upper() == "ALL"]
     keepers = team_df[team_df["Player Type"].str.strip().str.upper() == "WK"]
     
-    if len(batters) < 4 or len(bowlers) < 3 or len(keepers) < 1:
+    # Players capable of bowling (bowlers + all-rounders)
+    bowling_options = pd.concat([bowlers, allrounders])
+    
+    if len(batters) < 4 or len(bowling_options) < 5 or len(keepers) < 1:
         print("Not enough players for constraints. Relaxing requirements.")
+        print(f"Available batters: {len(batters)}, bowling options: {len(bowling_options)}, keepers: {len(keepers)}")
         return None
     
     prob = pulp.LpProblem("FantasyTeam", pulp.LpMaximize)
@@ -73,7 +76,7 @@ def optimize_team(team1, team2, total_players=11, team1_weight=1.0, team2_weight
     
     # Role constraints
     prob += pulp.lpSum([x[i] for i in batters.index]) >= 4, "Min_Batters"
-    prob += pulp.lpSum([x[i] for i in bowlers.index]) >= 3, "Min_Bowlers"
+    prob += pulp.lpSum([x[i] for i in bowling_options.index]) >= 5, "Min_Bowling_Options"  # Updated constraint
     prob += pulp.lpSum([x[i] for i in keepers.index]) >= 1, "Min_Keepers"
     
     # Team constraints
@@ -126,7 +129,7 @@ if __name__ == "__main__":
     # Get ground-specific weights
     ground_data = ground_df.iloc[ground_index]
     batter_weight = float(ground_data["Batting"])
-    keeper_weight=float(ground_data["Batting"])
+    keeper_weight = float(ground_data["Batting"])
     bowler_weight = float(ground_data["Bowling"])
     
     print(f"\nSelected Ground: {selected_ground}")
