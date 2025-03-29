@@ -17,13 +17,13 @@ ground_df = pd.read_csv("data/ground.csv")
 # ============================================================
 # 1. Load Player Data from Provided CSV
 # ============================================================
-squad_df = pd.read_csv("data/SquadPlayerNames_7.csv")
+squad_df = pd.read_csv("data/SquadPlayerNames.csv")
 
 # Filter for playing players (PLAYING or X_FACTOR_SUBSTITUTE)
 playing_players = squad_df[squad_df["IsPlaying"].isin(["PLAYING", "X_FACTOR_SUBSTITUTE"])]
 
 # Load form scores and merge with playing players
-form_df = pd.read_csv('data/player_form_scores(3).csv')
+form_df = pd.read_csv('data/player_form.csv')
 df = pd.merge(playing_players, form_df, left_on="Player Name", right_on="Player", how="left")
 
 # Select and rename relevant columns
@@ -156,8 +156,8 @@ if __name__ == "__main__":
     df["Score"] = df.apply(calculate_score, axis=1)
     
     # Define teams and team weights (updated to match CSV)
-    home_team1 = "SRH"
-    away_team2 = "LSG"
+    home_team1 = "GT"
+    away_team2 = "MI"
     team1_weight = 1.05  # Slight home advantage
     team2_weight = 1.0  
     
