@@ -1,9 +1,9 @@
 Credits,Player Type,Player Name,Team,ESPN player name
-5.0,WK,Vansh Bedi,CHE,-
+5.0,WK,Vansh Bedi,CHE, 
 5.5,BAT,Andre Siddharth,CHE,M Siddharth
-5.5,ALL,Ramakrishna Ghosh,CHE,-
-5.0,BAT,Shaik Rasheed,CHE,-
-6.0,BOWL,Gurjapneet Singh,CHE,-
+5.5,ALL,Ramakrishna Ghosh,CHE, 
+5.0,BAT,Shaik Rasheed,CHE, 
+6.0,BOWL,Gurjapneet Singh,CHE, 
 8.5,BOWL,Matheesha Pathirana,CHE,M Pathirana
 7.5,BOWL,Noor Ahmad,CHE,Noor Ahmad
 6.0,BOWL,Anshul Kamboj,CHE,A Kamboj
@@ -19,22 +19,22 @@ Credits,Player Type,Player Name,Team,ESPN player name
 6.5,BOWL,Shreyas Gopal,CHE,S Gopal
 7.0,BAT,Deepak Hooda,CHE,DJ Hooda
 8.0,WK,Devon Conway,CHE,DP Conway
-6.5,ALL,Jamie Overton,CHE,–
+6.5,ALL,Jamie Overton,CHE, 
 6.5,BAT,Vijay Shankar,CHE,V Shankar
 8.0,ALL,Ravichandran Ashwin,CHE,R Ashwin
 8.5,ALL,Ravindra Jadeja,CHE,RA Jadeja
 7.0,WK,MS Dhoni,CHE,MS Dhoni
-5.0,ALL,Madhav Tiwari,DC,–
-5.5,ALL,Manvanth Kumar L,DC,-
-5.5,BOWL,Tripurana Vijay,DC,-
-5.0,BOWL,Vipraj Nigam,DC,–
+5.0,ALL,Madhav Tiwari,DC, 
+5.5,ALL,Manvanth Kumar L,DC, 
+5.5,BOWL,Tripurana Vijay,DC, 
+5.0,BOWL,Vipraj Nigam,DC,V Nigam 
 8.0,BAT,Tristan Stubbs,DC,T Stubbs
 6.5,WK,Abishek Porel,DC,Abishek Porel
 7.0,BAT,Ashutosh Sharma,DC,AR Sharma
 7.0,ALL,Donovan Ferreira,DC,D Ferreira
 6.5,BAT,Sameer Rizvi,DC,Sameer Rizvi
-7.5,BAT,Jake Fraser-McGurk,DC,J Fraser-McGurk
-6.5,ALL,Ajay Mandal,DC,–
+7.5,BAT,Jake Fraser McGurk,DC,J Fraser-McGurk
+6.5,ALL,Ajay Mandal,DC, 
 6.5,BOWL,Darshan Nalkande,DC,DG Nalkande
 7.5,BOWL,T Natarajan,DC,T Natarajan
 7.0,BOWL,Mukesh Kumar,DC,Mukesh Kumar
@@ -47,7 +47,7 @@ Credits,Player Type,Player Name,Team,ESPN player name
 8.5,BAT,Faf du Plessis,DC,F du Plessis
 8.5,BOWL,Mitchell Starc,DC,MA Starc
 5.5,BOWL,Gurnoor Brar Singh,GT,Gurnoor Brar
-6.0,ALL,Nishant Sindhu,GT,–
+6.0,ALL,Nishant Sindhu,GT, 
 5.5,ALL,Arshad Khan,GT,Arshad Khan
 8.0,BAT,Sai Sudharsan,GT,B Sai Sudharsan
 5.5,WK,Kumar Kushagra,GT,K Kushagra
@@ -59,12 +59,12 @@ Credits,Player Type,Player Name,Team,ESPN player name
 9.0,BAT,Shubman Gill,GT,Shubman Gill
 7.0,BOWL,Ravisrinivasan Sai Kishore,GT,R Sai Kishore
 6.5,BAT,Mahipal Lomror,GT,MK Lomror
-6.0,ALL,Karim Janat,GT,–
+6.0,ALL,Karim Janat,GT, 
 7.0,ALL,Washington Sundar,GT,Washington Sundar
 7.5,ALL,Shahrukh Khan,GT,Arshad Khan
 8.0,BOWL,Mohammed Siraj,GT,Mohammed Siraj
 8.0,BAT,Glenn Phillips,GT,GD Phillips
-9.0,BOWL,Rashid-Khan,GT,Rashid Khan
+9.0,BOWL,Rashid Khan,GT,Rashid Khan
 7.5,BOWL,Prasidh Krishna,GT,M Prasidh Krishna
 6.5,BOWL,Jayant Yadav,GT,J Yadav
 7.0,ALL,Rahul Tewatia,GT,R Tewatia
@@ -74,7 +74,7 @@ Credits,Player Type,Player Name,Team,ESPN player name
 8.0,BOWL,Harshit Rana,KKR,Harshit Rana
 6.5,BAT,Angkrish Raghuvanshi,KKR,A Raghuvanshi
 6.5,BOWL,Vaibhav Arora,KKR,VG Arora
-5.5,WK,Luvnith Sisodia,KKR,–
+5.5,WK,Luvnith Sisodia,KKR, 
 6.0,BOWL,Mayank Markande,KKR,M Markande
 6.0,BOWL,Chetan Sakariya,KKR,C Sakariya
 7.5,WK,Rahmanullah Gurbaz,KKR,Rahmanullah Gurbaz
@@ -93,7 +93,7 @@ Credits,Player Type,Player Name,Team,ESPN player name
 7.0,BAT,Manish Pandey,KKR,MK Pandey
 7.5,BAT,Ajinkya Rahane,KKR,AM Rahane
 6.0,BOWL,Umran Malik,KKR,Umran Malik
-5.0,BOWL,Digvesh Singh,LSG,
+5.0,BOWL,Digvesh Singh,LSG,DS Rathi
 5.5,BOWL,Prince Yadav,LSG,
 6.5,BOWL,Shamar Joseph,LSG,S Joseph
 7.5,BOWL,Mayank Yadav,LSG,MP Yadav
@@ -111,53 +111,54 @@ Credits,Player Type,Player Name,Team,ESPN player name
 6.5,BAT,Matthew Breetzke,LSG,
 6.0,BOWL,Manimaran Siddharth,LSG,M Siddharth
 9.0,WK,Rishabh Pant,LSG,RR Pant
-5.5,BAT,Himmat Singh,LSG,-
+5.5,BAT,Himmat Singh,LSG, 
 8.0,ALL,Aiden Markram,LSG,AK Markram
 8.0,BOWL,Avesh Khan,LSG,Avesh Khan
 8.5,WK,Nicholas Pooran,LSG,N Pooran
 8.0,BAT,David Miller,LSG,DA Miller
 8.0,BAT,Mitchell Marsh,LSG,MR Marsh
-6.0,BAT,Bevon Jacobs,MI,-
+7.5,BOWL,Shardul Thakur,LSG,SN Thakur 
+6.0,BAT,Bevon Jacobs,MI, 
 6.5,ALL,Naman Dhir,MI,Naman Dhir
-5.5,WK,Robin Minz,MI,-
+5.5,WK,Robin Minz,MI,R Minz 
 5.5,BAT,Raj Angad Bawa,MI,RA Bawa
-5.0,BOWL,Vignesh Puthur,MI,-
-5.5,ALL,Satyanarayana Raju,MI,-
-5.5,BOWL,Ashwani Kumar,MI,-
+5.0,BOWL,Vignesh Puthur,MI, 
+5.5,ALL,Satyanarayana Raju,MI,PVSN Raju 
+5.5,BOWL,Ashwani Kumar,MI, 
 8.0,BAT,Tilak Varma,MI,NT Tilak Varma
-6.0,WK,KL Shrijith,MI,-
-7.0,BOWL,Mujeeb-ur-Rahman,MI,Mujeeb Ur Rahman
-7.5,WK,Ryan Rickelton,MI,-
+6.0,WK,KL Shrijith,MI, 
+7.0,BOWL,Mujeeb ur Rahman,MI,Mujeeb Ur Rahman
+7.5,WK,Ryan Rickelton,MI, 
 5.0,BOWL,Arjun Tendulkar,MI,AS Tendulkar
 7.5,ALL,Will Jacks,MI,WG Jacks
 9.0,ALL,Hardik Pandya,MI,HH Pandya
 7.5,ALL,Mitchell Santner,MI,MJ Santner
 6.5,BOWL,Reece Topley,MI,RJW Topley
-6.0,ALL,Corbin Bosch,MI,-
+6.0,ALL,Corbin Bosch,MI, 
 9.0,BOWL,Jasprit Bumrah,MI,JJ Bumrah
 8.5,BOWL,Trent Boult,MI,TA Boult
 9.0,BAT,Suryakumar Yadav,MI,SA Yadav
 8.0,BOWL,Deepak Chahar,MI,DL Chahar
 6.5,BOWL,Karn Sharma,MI,KV Sharma
 9.0,BAT,Rohit Sharma,MI,RG Sharma
-6.0,ALL,Musheer Khan,PBKS,-
+6.0,ALL,Musheer Khan,PBKS, 
 5.0,BAT,Harnoor Singh Pannu,PBKS,Harnoor Singh
-5.5,BAT,Pyla Avinash,PBKS,-
-5.5,ALL,Suryansh Shedge,PBKS,-
+5.5,BAT,Pyla Avinash,PBKS, 
+5.5,ALL,Suryansh Shedge,PBKS, 
 6.5,BOWL,Harpreet Brar,PBKS,Harpreet Brar
-6.5,BAT,Priyansh Arya,PBKS,-
+6.5,BAT,Priyansh Arya,PBKS, 
 6.0,BOWL,Kuldeep Sen,PBKS,KR Sen
 8.0,ALL,Marco Jansen,PBKS,M Jansen
 7.5,BAT,Nehal Wadhera,PBKS,N Wadhera
 7.5,WK,Prabhsimran Singh,PBKS,Prabhsimran Singh
-7.0,ALL,Aaron Hardie,PBKS,-
+7.0,ALL,Aaron Hardie,PBKS, 
 8.5,BOWL,Arshdeep Singh,PBKS,Arshdeep Singh
 7.5,ALL,Azmatullah Omarzai,PBKS,Azmatullah Omarzai
 6.5,WK,Vishnu Vinod,PBKS,Vishnu Vinod
-6.5,BOWL,Xavier Bartlett,PBKS,-
+6.5,BOWL,Xavier Bartlett,PBKS, 
 7.5,BAT,Shashank Singh,PBKS,Shashank Singh
 7.5,BOWL,Lockie Ferguson,PBKS,LH Ferguson
-7.5,WK,Josh Inglis,PBKS,-
+7.5,WK,Josh Inglis,PBKS, 
 7.0,BOWL,Vyshak Vijaykumar,PBKS,V Vyshak
 6.0,BOWL,Pravin Dubey,PBKS,P Dubey
 6.5,BOWL,Yash Thakur,PBKS,Yash Thakur
@@ -165,14 +166,14 @@ Credits,Player Type,Player Name,Team,ESPN player name
 8.0,ALL,Marcus Stoinis,PBKS,MP Stoinis
 8.5,BOWL,Yuzvendra Chahal,PBKS,YS Chahal
 8.5,ALL,Glenn Maxwell,PBKS,GJ Maxwell
-5.0,BOWL,Abhinandan Singh,RCB,-
-5.5,BAT,Swastik Chikara,RCB,-
+5.0,BOWL,Abhinandan Singh,RCB, 
+5.5,BAT,Swastik Chikara,RCB, 
 6.0,ALL,Mohit Rathee,RCB,Mohit Rathee
 6.0,BOWL,Suyash Sharma,RCB,Suyash Sharma
-7.0,BAT,Jacob Bethell,RCB,-
+7.0,BAT,Jacob Bethell,RCB, 
 6.5,BOWL,Rasikh Salam,RCB,Rasikh Salam
 7.0,BOWL,Yash Dayal,RCB,Yash Dayal
-6.5,ALL,Manoj Bhandage,RCB,-
+6.5,ALL,Manoj Bhandage,RCB, 
 7.5,BOWL,Nuwan Thushara,RCB,N Thushara
 7.0,ALL,Romario Shepherd,RCB,R Shepherd
 7.5,BAT,Tim David,RCB,TH David
@@ -187,10 +188,10 @@ Credits,Player Type,Player Name,Team,ESPN player name
 8.0,BOWL,Bhuvneshwar Kumar,RCB,B Kumar
 7.0,ALL,Swapnil Singh,RCB,Swapnil Singh
 9.0,BAT,Virat Kohli,RCB,V Kohli
-5.0,BAT,Vaibhav Suryavanshi,RR,-
-5.0,BOWL,Ashok Sharma,RR,-
+5.0,BAT,Vaibhav Suryavanshi,RR, 
+5.0,BOWL,Ashok Sharma,RR, 
 6.0,BOWL,Kwena Maphaka,RR,KT Maphaka
-5.0,WK,Kunal Singh Rathore,RR,-
+5.0,WK,Kunal Singh Rathore,RR, 
 7.0,BOWL,Akash Madhwal,RR,A Madhwal
 5.5,BAT,Shubham Dubey,RR,SB Dubey
 6.5,ALL,Yudhvir Singh Charak,RR,Yudhvir Singh
@@ -207,17 +208,17 @@ Credits,Player Type,Player Name,Team,ESPN player name
 7.5,BAT,Shimron Hetmyer,RR,SO Hetmyer
 7.5,BOWL,Sandeep Sharma,RR,Sandeep Sharma
 9.0,WK,Sanju Samson,RR,SV Samson
-5.0,BAT,Aniket Verma,SRH,-
-6.0,BOWL,Eshan Malinga,SRH,-
+5.0,BAT,Aniket Verma,SRH,AU Verma 
+6.0,BOWL,Eshan Malinga,SRH, 
 8.0,ALL,K Nitish Reddy,SRH,K Nitish Kumar Reddy
 6.5,BAT,Abhinav Manohar,SRH,A Manohar
 6.5,BAT,Atharva Taide,SRH,A Taide
-6.0,BOWL,Simarjeet- Singh,SRH,Simarjeet Singh
+6.0,BOWL,Simarjeet  Singh,SRH,Simarjeet Singh
 6.5,BOWL,Rahul Chahar,SRH,RD Chahar
 8.5,ALL,Abhishek Sharma,SRH,Abhishek Sharma
-7.0,BAT,Kamindu Mendis,SRH,-
-7.0,ALL,Wiaan Mulder,SRH,-
-5.5,BOWL,Zeeshan Ansari,SRH,-
+7.0,BAT,Kamindu Mendis,SRH, 
+7.0,ALL,Wiaan Mulder,SRH, 
+5.5,BOWL,Zeeshan Ansari,SRH, 
 8.0,WK,Ishan Kishan,SRH,Ishan Kishan
 9.0,WK,Heinrich Klaasen,SRH,H Klaasen
 6.5,BAT,Sachin Baby,SRH,Sachin Baby
