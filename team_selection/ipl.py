@@ -12,7 +12,7 @@ keeper_weight = 1.0       # Weight for keepers
 # ============================================================
 # 1. Load Data
 # ============================================================
-df = pd.read_csv('player_form_scores(3).csv')
+df = pd.read_csv('data/player_form_last3.csv')
 
 # ============================================================
 # 2. Corrected Score Calculation (Case-Insensitive Role Check)
@@ -96,8 +96,8 @@ def optimize_team(team1, team2, total_players=20):
 # 4. Test Run
 # ============================================================
 if __name__ == "__main__":
-    home_team1 = "KKR"
-    away_team2 = "RR"
+    team1 = "KKR"
+    team2 = "SRH"
 
     best_team = optimize_team(team1, team2)
     

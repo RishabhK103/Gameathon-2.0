@@ -18,7 +18,7 @@ ground_df = pd.read_csv("data/ground.csv")
 # ============================================================
 # 1. Load Player Data
 # ============================================================
-df = pd.read_csv('data/player_form_scores(3).csv')
+df = pd.read_csv('data/merged_output.csv')
 
 # ============================================================
 # 2. Corrected Score Calculation (Case-Insensitive Role Check)
@@ -72,8 +72,8 @@ def optimize_team(team1, team2, total_players=11, team1_weight=1.0, team2_weight
     prob += pulp.lpSum([x[i] for i in players]) == total_players, "Total_Players"
     
     # Role constraints
-    prob += pulp.lpSum([x[i] for i in batters.index]) >= 4, "Min_Batters"
-    prob += pulp.lpSum([x[i] for i in bowlers.index]) >= 3, "Min_Bowlers"
+    prob += pulp.lpSum([x[i] for i in batters.index]) >= 2, "Min_Batters"
+    prob += pulp.lpSum([x[i] for i in bowlers.index]) >= 2, "Min_Bowlers"
     prob += pulp.lpSum([x[i] for i in keepers.index]) >= 1, "Min_Keepers"
     
     # Team constraints
@@ -137,9 +137,9 @@ if __name__ == "__main__":
     df["Score"] = df.apply(calculate_score, axis=1)
     
     # Define teams and team weights
-    home_team1 = "SRH"
-    away_team2 = "LSG"
-    team1_weight = 1.05 
+    home_team1 = "DC"
+    away_team2 = "SRH"
+    team1_weight = 1.05
     team2_weight = 1.0  
     
     # Optimize team

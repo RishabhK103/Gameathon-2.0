@@ -6,7 +6,7 @@ import pulp
 # ============================================================
 batter_weight = 1.0
 bowler_weight = 1.0
-allrounder_weight = 1.0  # Boost for all-rounders
+allrounder_weight = 1.1  # Boost for all-rounders
 keeper_weight = 1.0  # Weight for keepers
 
 # ============================================================
@@ -57,7 +57,8 @@ def calculate_score(row):
 # ============================================================
 # 3. Optimization (No Credit Constraint, Adjustable Team Weights)
 # ============================================================
-def optimize_team(team1, team2, total_players=11, team1_weight=1.0, team2_weight=1.0):
+def optimize_team(team1, team2, total_players=11, team1_weight=1.05, team2_weight=1.0):
+    
     team_df = df[df["Team"].isin([team1, team2])].copy()
     
     # Apply team-specific weights to scores
@@ -92,7 +93,7 @@ def optimize_team(team1, team2, total_players=11, team1_weight=1.0, team2_weight
     # Role constraints
     prob += pulp.lpSum([x[i] for i in batters.index]) >= 2, "Min_Batters"
     prob += pulp.lpSum([x[i] for i in bowlers.index]) >= 2, "Min_Bowlers"
-    prob += pulp.lpSum([x[i] for i in bowling_options.index]) >= 5, "Min_Bowling_Options"
+    prob += pulp.lpSum([x[i] for i in bowling_options.index]) >= 6, "Min_Bowling_Options"
     prob += pulp.lpSum([x[i] for i in keepers.index]) >= 1, "Min_Keepers"
     
     # Team constraints
@@ -147,18 +148,22 @@ if __name__ == "__main__":
     batter_weight = float(ground_data["Batting"])
     keeper_weight = float(ground_data["Batting"])
     bowler_weight = float(ground_data["Bowling"])
-    
+    allrounder_weight=((batter_weight+bowler_weight)/2)
+    if allrounder_weight<1:
+        allrounder_weight=1.0
+
     print(f"\nSelected Ground: {selected_ground}")
     print(f"Batter Weight: {batter_weight}")
     print(f"Bowler Weight: {bowler_weight}")
+    print("all : ",allrounder_weight)
     
     # Recalculate scores with ground-adjusted weights
     df["Score"] = df.apply(calculate_score, axis=1)
     
     # Define teams and team weights (updated to match CSV)
-    home_team1 = "GT"
-    away_team2 = "MI"
-    team1_weight = 1.05  # Slight home advantage
+    home_team1 = "RR"
+    away_team2 = "CHE"
+    team1_weight = 1.0  # Slight home advantage
     team2_weight = 1.0  
     
     # Optimize team

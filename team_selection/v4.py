@@ -75,7 +75,7 @@ def optimize_team(team1, team2, total_players=11, team1_weight=1.0, team2_weight
     prob += pulp.lpSum([x[i] for i in players]) == total_players, "Total_Players"
     
     # Role constraints
-    prob += pulp.lpSum([x[i] for i in batters.index]) >= 4, "Min_Batters"
+    prob += pulp.lpSum([x[i] for i in batters.index]) >= 2, "Min_Batters"
     prob += pulp.lpSum([x[i] for i in bowling_options.index]) >= 5, "Min_Bowling_Options"  # Updated constraint
     prob += pulp.lpSum([x[i] for i in keepers.index]) >= 1, "Min_Keepers"
     
@@ -140,8 +140,8 @@ if __name__ == "__main__":
     df["Score"] = df.apply(calculate_score, axis=1)
     
     # Define teams and team weights
-    home_team1 = "SRH"
-    away_team2 = "LSG"
+    home_team1 = "CSK"
+    away_team2 = "RCB"
     team1_weight = 1.05 
     team2_weight = 1.0  
     
