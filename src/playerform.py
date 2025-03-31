@@ -1,19 +1,14 @@
-import sys
-import os
 import pandas as pd
 import numpy as np
 import yaml
 from scipy.stats import percentileofscore
 from colorama import Fore, init
-
+import os
+import sys
 init(autoreset=True)
-
 
 class PlayerForm:
     def __init__(self):
-        """
-        Initializes the PlayerForm with file paths and parameters tailored for IPL data.
-        """
         try:
             with open("../config.yaml", "r") as stream:
                 config = yaml.safe_load(stream)
@@ -22,8 +17,6 @@ class PlayerForm:
             sys.exit(1)
 
         self.config = config
-
-        # File paths matching ipl20scrapper.py output
         self.bowling_file = "../data/ipl/bowling_recent_averages.csv"
         self.batting_file = "../data/ipl/batting_recent_averages.csv"
         self.fielding_file = "../data/ipl/fielding_recent_averages.csv"
@@ -31,13 +24,9 @@ class PlayerForm:
         self.squad_file = config["data"].get("squad_file", "../data/ipl/squad.csv")
         self.previous_months = config["data"].get("previous_months", 36)
         self.decay_rate = config["data"].get("decay_rate", 0.1)
-        self.key_cols = ["Player", "Team", "Span", "Mat"]  # Adjusted to use Span instead of Start/End Date
+        self.key_cols = ["Player", "Team", "Span", "Mat"]
 
     def load_data(self):
-        """
-        Loads and merges the bowling, batting, and fielding CSV data.
-        Splits the 'Span' column into approximate 'Start Date' and 'End Date'.
-        """
         try:
             bowling = pd.read_csv(self.bowling_file)
             batting = pd.read_csv(self.batting_file)
@@ -46,21 +35,16 @@ class PlayerForm:
             print(Fore.RED + f"Error reading CSV files: {e}")
             sys.exit(1)
 
-        # Drop columns with all missing values
         bowling = bowling.dropna(axis=1, how="all")
         batting = batting.dropna(axis=1, how="all")
         fielding = fielding.dropna(axis=1, how="all")
 
-        # Process 'Span' column into approximate 'Start Date' and 'End Date'
         for df in [bowling, batting, fielding]:
             if "Span" in df.columns:
-                # Split Span into Start and End years (e.g., "2023-2024")
                 df[["Start Date", "End Date"]] = df["Span"].str.split("-", expand=True)
-                # Assume January 1st for Start Date and December 31st for End Date
                 df["Start Date"] = pd.to_datetime(df["Start Date"] + "-01-01", format="%Y-%m-%d")
                 df["End Date"] = pd.to_datetime(df["End Date"] + "-12-31", format="%Y-%m-%d")
 
-        # Rename columns for each dataset (except for key columns)
         bowling_renamed = bowling.rename(
             columns=lambda x: f"bowl {x}".lower() if x not in self.key_cols + ["Start Date", "End Date"] else x
         )
@@ -71,68 +55,49 @@ class PlayerForm:
             columns=lambda x: f"field {x}".lower() if x not in self.key_cols + ["Start Date", "End Date"] else x
         )
 
-        # Merge DataFrames on key columns using outer joins
         df = bowling_renamed.merge(batting_renamed, on=self.key_cols + ["Start Date", "End Date"], how="outer")
         df = df.merge(fielding_renamed, on=self.key_cols + ["Start Date", "End Date"], how="outer")
-
-        # Save updated files with Start Date and End Date
-        try:
-            batting.to_csv(self.batting_file, index=False)
-            bowling.to_csv(self.bowling_file, index=False)
-            fielding.to_csv(self.fielding_file, index=False)
-            print("Updated player files with derived Start Date and End Date")
-        except Exception as e:
-            print(Fore.RED + f"Error saving updated CSV files: {e}")
-            sys.exit(1)
-
         return df
 
-    def filter_players_by_squad(self, df):
-        """
-        Filters the DataFrame to retain only rows for players present in the squad CSV file.
-        """
+    def include_all_squad_players(self, df):
         try:
             squad_df = pd.read_csv(self.squad_file)
+            squad_df["ESPN player name"] = squad_df["ESPN player name"].str.strip()
         except Exception as e:
             print(Fore.RED + f"Error reading squad CSV file: {e}")
             sys.exit(1)
 
-        # Strip leading and trailing spaces from the 'ESPN player name' column
-        squad_df["ESPN player name"] = squad_df["ESPN player name"].str.strip()
-
         valid_players = squad_df["ESPN player name"].dropna().tolist()
         print(f"Total players in squad.csv: {len(valid_players)}")
 
-        # Check which players are in the data but not in the squad
+        # Merge squad data with scraped data, keeping all squad players (right join)
+        combined_df = squad_df[["Credits", "Player Type", "Player Name", "Team", "ESPN player name"]].merge(
+            df,
+            left_on="ESPN player name",
+            right_on="Player",
+            how="left",
+            suffixes=("_squad", "_scraped")
+        )
+
+        # Set Player and Team from squad.csv
+        combined_df["Player"] = combined_df["Player Name"]
+        combined_df["Team"] = combined_df["Team_squad"]
+
+        # Drop redundant columns
+        combined_df.drop(["ESPN player name", "Player Name", "Team_squad", "Team_scraped"], axis=1, inplace=True)
+
+        # Report coverage
         data_players = df["Player"].unique().tolist()
         missing_in_squad = set(data_players) - set(valid_players)
-        print(f"Players in batting data but missing in squad.csv: {missing_in_squad}")
+        missing_in_data = set(valid_players) - set(combined_df["Player"].dropna().unique())
+        print(f"Players in scraped data but missing in squad.csv: {missing_in_squad}")
+        print(f"Players in squad.csv with no scraped data: {missing_in_data}")
+        print(f"Players in final dataset: {len(combined_df['Player'].unique())}")
 
-        # Filter players based on squad
-        filtered_df = df[df["Player"].isin(valid_players)].copy()
-        print(f"Players in data after filtering: {len(filtered_df['Player'].unique())}")
-
-        missing_players = set(valid_players) - set(filtered_df["Player"])
-        print(f"Players in squad.csv but missing in data: {missing_players}")
-
-        # Merge squad data and overwrite Team with squad.csv's Team
-        filtered_df = filtered_df.merge(
-            squad_df[["Credits", "Player Type", "Player Name", "Team", "ESPN player name"]],
-            left_on="Player",
-            right_on="ESPN player name",
-            how="left",
-            suffixes=("_scraped", "_squad")
-        )
-        filtered_df["Team"] = filtered_df["Team_squad"]
-        filtered_df["Player"] = filtered_df["Player Name"]
-
-        # Drop unnecessary columns
-        filtered_df.drop(["ESPN player name", "Player Name", "Team_squad", "Team_scraped"], axis=1, inplace=True)
-
-        return filtered_df
+        return combined_df
 
     def calculate_form(self, player_df):
-        player_df["End Date"] = pd.to_datetime(player_df["End Date"])
+        player_df["End Date"] = pd.to_datetime(player_df["End Date"], errors="coerce")
         cutoff_date = pd.to_datetime("today") - pd.DateOffset(months=self.previous_months)
         recent_data = player_df[player_df["End Date"] >= cutoff_date].copy()
         recent_data.sort_values(by=["Player", "End Date"], ascending=[True, False], inplace=True)
@@ -154,46 +119,46 @@ class PlayerForm:
         batting_weights = format_weights["T20"]["batting"]
         bowling_weights = format_weights["T20"]["bowling"]
 
-        # Batting Form (unchanged)
+        # Batting Form
         batting_metrics = {metric: recent_data.groupby("Player", group_keys=False).apply(lambda g: compute_ewma(g, metric), include_groups=False)
-                        for metric in ["bat runs", "bat bf", "bat sr", "bat ave", "bat 4s", "bat 6s"]}
+                           for metric in ["bat runs", "bat bf", "bat sr", "bat ave", "bat 4s", "bat 6s"]}
         batting_df = pd.DataFrame(batting_metrics).reset_index()
         batting_norm = {col: normalize_series(batting_df[col]) for col in ["bat runs", "bat ave", "bat sr", "bat 4s", "bat 6s"]}
         batting_df["Batting Form"] = sum(batting_weights[col] * batting_norm[col] for col in batting_weights)
 
-        # Bowling Form (modified)
+        # Bowling Form
         bowling_metrics = {metric: recent_data.groupby("Player", group_keys=False).apply(lambda g: compute_ewma(g, metric), include_groups=False)
-                        for metric in ["bowl wkts", "bowl runs", "bowl econ", "bowl overs", "bowl ave"]}
+                           for metric in ["bowl wkts", "bowl runs", "bowl econ", "bowl overs", "bowl ave"]}
         bowling_df = pd.DataFrame(bowling_metrics).reset_index()
-
-        # Flag non-bowlers: players with no overs bowled
         bowling_df["Has Bowled"] = bowling_df["bowl overs"] > 0
         bowling_norm = {
             "bowl wkts": normalize_series(bowling_df["bowl wkts"]),
-            "bowl ave": 100 - normalize_series(bowling_df["bowl ave"].replace(0, np.inf)),  # Treat 0 ave as worst
-            "bowl econ": 100 - normalize_series(bowling_df["bowl econ"].replace(0, np.inf)),  # Treat 0 econ as worst
+            "bowl ave": 100 - normalize_series(bowling_df["bowl ave"].replace(0, np.inf)),
+            "bowl econ": 100 - normalize_series(bowling_df["bowl econ"].replace(0, np.inf)),
         }
         bowling_df["Bowling Form"] = np.where(
             bowling_df["Has Bowled"],
             (bowling_weights["bowl wkts"] * bowling_norm["bowl wkts"] +
-            bowling_weights["bowl ave"] * bowling_norm["bowl ave"] +
-            bowling_weights["bowl econ"] * bowling_norm["bowl econ"]),
-            30  # Default to 0 for non-bowlers
+             bowling_weights["bowl ave"] * bowling_norm["bowl ave"] +
+             bowling_weights["bowl econ"] * bowling_norm["bowl econ"]),
+            30  # NaN for non-bowlers or no data
         )
 
-        # Fielding Form (unchanged)
+        # Fielding Form
         fielding_metrics = {metric: recent_data.groupby("Player", group_keys=False).apply(lambda g: compute_ewma(g, metric), include_groups=False)
                             for metric in ["field ct", "field st", "field ct wk"]}
         fielding_df = pd.DataFrame(fielding_metrics).reset_index()
         fielding_norm = {col: normalize_series(fielding_df[col]) for col in ["field ct", "field st", "field ct wk"]}
         fielding_df["Fielding Form"] = (0.5 * fielding_norm["field ct"] + 0.3 * fielding_norm["field st"] + 0.2 * fielding_norm["field ct wk"])
 
-        # Merge forms
-        form_df = (batting_df[["Player", "Batting Form"]]
-                .merge(bowling_df[["Player", "Bowling Form"]], on="Player", how="outer")
-                .merge(fielding_df[["Player", "Fielding Form"]], on="Player", how="outer"))
-        metadata_df = player_df[["Player", "Credits", "Player Type", "Team"]].drop_duplicates("Player")
-        form_df = form_df.merge(metadata_df, on="Player", how="left")
+        # Merge forms, keeping all players from player_df
+        form_df = player_df[["Player", "Credits", "Player Type", "Team"]].drop_duplicates("Player").merge(
+            batting_df[["Player", "Batting Form"]], on="Player", how="left"
+        ).merge(
+            bowling_df[["Player", "Bowling Form"]], on="Player", how="left"
+        ).merge(
+            fielding_df[["Player", "Fielding Form"]], on="Player", how="left"
+        )
 
         
         # Optional: Print data coverage
@@ -226,16 +191,13 @@ class PlayerForm:
         return form_df
 
     def run(self):
-        """
-        Executes the full data preprocessing workflow for IPL data.
-        """
         if not os.path.exists(os.path.dirname(self.output_file)):
             os.makedirs(os.path.dirname(self.output_file))
 
         print(Fore.CYAN + "Starting IPL data preprocessing...")
         df = self.load_data()
-        filtered_df = self.filter_players_by_squad(df)
-        form_scores = self.calculate_form(filtered_df)
+        combined_df = self.include_all_squad_players(df)
+        form_scores = self.calculate_form(combined_df)
         print(Fore.GREEN + "\n\nIPL form scores calculated successfully")
         form_scores.to_csv(self.output_file, index=False)
 
