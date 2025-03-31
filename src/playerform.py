@@ -132,10 +132,6 @@ class PlayerForm:
         return filtered_df
 
     def calculate_form(self, player_df):
-        """
-        Calculates recent form scores for batting, bowling, and fielding using T20 weights.
-        Uses derived 'End Date' for time-based filtering.
-        """
         player_df["End Date"] = pd.to_datetime(player_df["End Date"])
         cutoff_date = pd.to_datetime("today") - pd.DateOffset(months=self.previous_months)
         recent_data = player_df[player_df["End Date"] >= cutoff_date].copy()
@@ -151,89 +147,55 @@ class PlayerForm:
 
         format_weights = {
             "T20": {
-                "batting": {
-                    "bat runs": 0.35,  # Boosted for run volume (1 pt/run + milestones)
-                    "bat ave": 0.05,   # Lowered; consistency matters less in T20
-                    "bat sr": 0.35,    # High weight for SR bonuses/penalties
-                    "bat 4s": 0.10,   # Kept moderate (2 pt bonus)
-                    "bat 6s": 0.15,   # Increased for higher bonus (4 pts)
-                },
-                "bowling": {
-                    "bowl wkts": 0.55,  # Increased; wickets are king (25 pts each)
-                    "bowl ave": 0.15,   # Reduced; indirect impact
-                    "bowl econ": 0.30,  # Kept strong for econ bonuses/penalties
-                },
+                "batting": {"bat runs": 0.35, "bat ave": 0.05, "bat sr": 0.35, "bat 4s": 0.10, "bat 6s": 0.15},
+                "bowling": {"bowl wkts": 0.55, "bowl ave": 0.15, "bowl econ": 0.30},
             },
         }
-        format_type = "T20"  # IPL data is T20
-        batting_weights = format_weights[format_type]["batting"]
-        bowling_weights = format_weights[format_type]["bowling"]
+        batting_weights = format_weights["T20"]["batting"]
+        bowling_weights = format_weights["T20"]["bowling"]
 
-        # Batting Form
-        batting_metrics = {}
-        for metric in ["bat runs", "bat bf", "bat sr", "bat ave", "bat 4s", "bat 6s"]:
-            batting_metrics[metric] = recent_data.groupby("Player", group_keys=False).apply(
-                lambda g: compute_ewma(g, metric), include_groups=False
-            )
+        # Batting Form (unchanged)
+        batting_metrics = {metric: recent_data.groupby("Player", group_keys=False).apply(lambda g: compute_ewma(g, metric), include_groups=False)
+                        for metric in ["bat runs", "bat bf", "bat sr", "bat ave", "bat 4s", "bat 6s"]}
         batting_df = pd.DataFrame(batting_metrics).reset_index()
+        batting_norm = {col: normalize_series(batting_df[col]) for col in ["bat runs", "bat ave", "bat sr", "bat 4s", "bat 6s"]}
+        batting_df["Batting Form"] = sum(batting_weights[col] * batting_norm[col] for col in batting_weights)
 
-        batting_norm = {}
-        for col in ["bat runs", "bat ave", "bat sr", "bat 4s", "bat 6s"]:
-            batting_norm[col] = normalize_series(batting_df[col])
-
-        batting_df["Batting Form"] = (
-            batting_weights["bat runs"] * batting_norm["bat runs"]
-            + batting_weights["bat ave"] * batting_norm["bat ave"]
-            + batting_weights["bat sr"] * batting_norm["bat sr"]
-            + batting_weights["bat 4s"] * batting_norm["bat 4s"]
-            + batting_weights["bat 6s"] * batting_norm["bat 6s"]
-        )
-
-        # Bowling Form
-        bowling_metrics = {}
-        for metric in ["bowl wkts", "bowl runs", "bowl econ", "bowl overs", "bowl ave"]:
-            bowling_metrics[metric] = recent_data.groupby("Player", group_keys=False).apply(
-                lambda g: compute_ewma(g, metric), include_groups=False
-            )
+        # Bowling Form (modified)
+        bowling_metrics = {metric: recent_data.groupby("Player", group_keys=False).apply(lambda g: compute_ewma(g, metric), include_groups=False)
+                        for metric in ["bowl wkts", "bowl runs", "bowl econ", "bowl overs", "bowl ave"]}
         bowling_df = pd.DataFrame(bowling_metrics).reset_index()
 
-        bowling_norm = {}
-        bowling_norm["bowl wkts"] = normalize_series(bowling_df["bowl wkts"])
-        bowling_norm["bowl ave"] = 100 - normalize_series(bowling_df["bowl ave"])
-        bowling_norm["bowl econ"] = 100 - normalize_series(bowling_df["bowl econ"])
-
-        bowling_df["Bowling Form"] = (
-            bowling_weights["bowl wkts"] * bowling_norm["bowl wkts"]
-            + bowling_weights["bowl ave"] * bowling_norm["bowl ave"]
-            + bowling_weights["bowl econ"] * bowling_norm["bowl econ"]
+        # Flag non-bowlers: players with no overs bowled
+        bowling_df["Has Bowled"] = bowling_df["bowl overs"] > 0
+        bowling_norm = {
+            "bowl wkts": normalize_series(bowling_df["bowl wkts"]),
+            "bowl ave": 100 - normalize_series(bowling_df["bowl ave"].replace(0, np.inf)),  # Treat 0 ave as worst
+            "bowl econ": 100 - normalize_series(bowling_df["bowl econ"].replace(0, np.inf)),  # Treat 0 econ as worst
+        }
+        bowling_df["Bowling Form"] = np.where(
+            bowling_df["Has Bowled"],
+            (bowling_weights["bowl wkts"] * bowling_norm["bowl wkts"] +
+            bowling_weights["bowl ave"] * bowling_norm["bowl ave"] +
+            bowling_weights["bowl econ"] * bowling_norm["bowl econ"]),
+            30  # Default to 0 for non-bowlers
         )
 
-        # Fielding Form
-        fielding_metrics = {}
-        for metric in ["field ct", "field st", "field ct wk"]:
-            fielding_metrics[metric] = recent_data.groupby("Player", group_keys=False).apply(
-                lambda g: compute_ewma(g, metric), include_groups=False
-            )
+        # Fielding Form (unchanged)
+        fielding_metrics = {metric: recent_data.groupby("Player", group_keys=False).apply(lambda g: compute_ewma(g, metric), include_groups=False)
+                            for metric in ["field ct", "field st", "field ct wk"]}
         fielding_df = pd.DataFrame(fielding_metrics).reset_index()
+        fielding_norm = {col: normalize_series(fielding_df[col]) for col in ["field ct", "field st", "field ct wk"]}
+        fielding_df["Fielding Form"] = (0.5 * fielding_norm["field ct"] + 0.3 * fielding_norm["field st"] + 0.2 * fielding_norm["field ct wk"])
 
-        fielding_norm = {}
-        for col in ["field ct", "field st", "field ct wk"]:
-            fielding_norm[col] = normalize_series(fielding_df[col])
-
-        fielding_df["Fielding Form"] = (
-            0.5 * fielding_norm["field ct"]
-            + 0.3 * fielding_norm["field st"]
-            + 0.2 * fielding_norm["field ct wk"]
-        )
-
-        form_df = (
-            batting_df[["Player", "Batting Form"]]
-            .merge(bowling_df[["Player", "Bowling Form"]], on="Player", how="outer")
-            .merge(fielding_df[["Player", "Fielding Form"]], on="Player", how="outer")
-        )
+        # Merge forms
+        form_df = (batting_df[["Player", "Batting Form"]]
+                .merge(bowling_df[["Player", "Bowling Form"]], on="Player", how="outer")
+                .merge(fielding_df[["Player", "Fielding Form"]], on="Player", how="outer"))
         metadata_df = player_df[["Player", "Credits", "Player Type", "Team"]].drop_duplicates("Player")
         form_df = form_df.merge(metadata_df, on="Player", how="left")
 
+        
         # Optional: Print data coverage
         player_months = (
             recent_data.groupby(["Player", "Team"])["End Date"]
