@@ -44,15 +44,16 @@ class OverallPlayerForm:
 
         self.config = config
 
-        self.bowling_file = config["data"]["bowling_file"]
-        self.batting_file = config["data"]["batting_file"]
-        self.fielding_file = config["data"]["fielding_file"]
+        self.bowling_file = config["data"]["overall_bowling_file"]
+        self.batting_file = config["data"]["overall_batting_file"]
+        self.fielding_file = config["data"]["overall_fielding_file"]
         self.output_file = config["data"]["overall_performance"]
         self.key_cols = ["Player", "Team", "Start Date", "End Date", "Mat"]
 
     def load_data(self):
         """
         Loads and merges the bowling, batting, and fielding CSV data.
+        If 'Span' column exists, splits it into approximate 'Start Date' and 'End Date'.
         Returns:
             pd.DataFrame: The merged DataFrame with cleaned and renamed columns.
         """
@@ -64,12 +65,21 @@ class OverallPlayerForm:
             print(Fore.RED + f"Error reading CSV files: {e}")
             sys.exit(1)
 
-        # Drop columns with all missing values.
+        # Drop columns with all missing values
         bowling = bowling.dropna(axis=1, how="all")
         batting = batting.dropna(axis=1, how="all")
         fielding = fielding.dropna(axis=1, how="all")
 
-        # Rename columns for each dataset (except for key columns).
+        # Process 'Span' column into approximate 'Start Date' and 'End Date' if it exists
+        for df in [bowling, batting, fielding]:
+            if "Span" in df.columns and ("Start Date" not in df.columns or "End Date" not in df.columns):
+                # Split Span into Start and End years (e.g., "2023-2024")
+                df[["Start Date", "End Date"]] = df["Span"].str.split("-", expand=True)
+                # Assume January 1st for Start Date and December 31st for End Date
+                df["Start Date"] = pd.to_datetime(df["Start Date"] + "-01-01", format="%Y-%m-%d")
+                df["End Date"] = pd.to_datetime(df["End Date"] + "-12-31", format="%Y-%m-%d")
+
+        # Rename columns for each dataset (except for key columns)
         bowling_renamed = bowling.rename(
             columns=lambda x: f"bowl {x}".lower() if x not in self.key_cols else x
         )
@@ -80,23 +90,23 @@ class OverallPlayerForm:
             columns=lambda x: f"field {x}".lower() if x not in self.key_cols else x
         )
 
-        # Merge DataFrames on key columns using outer joins.
+        # Merge DataFrames on key columns using outer joins
         df = bowling_renamed.merge(batting_renamed, on=self.key_cols, how="outer")
         df = df.merge(fielding_renamed, on=self.key_cols, how="outer")
 
+        # Ensure date columns are in datetime format and save updated files
         try:
             df["Start Date"] = pd.to_datetime(df["Start Date"])
             df["End Date"] = pd.to_datetime(df["End Date"])
             batting.to_csv(self.batting_file, index=False)
             bowling.to_csv(self.bowling_file, index=False)
             fielding.to_csv(self.fielding_file, index=False)
-            print("Updated player files")
+            print("Updated player files with derived Start Date and End Date")
         except Exception as e:
-            print(Fore.RED + f"Error converting date columns: {e}")
+            print(Fore.RED + f"Error converting date columns or saving files: {e}")
             sys.exit(1)
 
         return df
-
     def filter_players_by_squad(self, df):
         """
         Filters the DataFrame to retain only rows for players present in the squad CSV file.
@@ -158,7 +168,7 @@ class OverallPlayerForm:
         player_df["End Date"] = pd.to_datetime(player_df["End Date"])
         # Define fixed date range from 2015 to 2024
         start_range = pd.to_datetime("2015-01-01")
-        end_range = pd.to_datetime("2024-12-31")
+        end_range = pd.to_datetime("2025-5-26")
         fixed_data = player_df[
             (player_df["End Date"] >= start_range)
             & (player_df["End Date"] <= end_range)
@@ -180,22 +190,13 @@ class OverallPlayerForm:
             return series.apply(lambda x: percentileofscore(series.dropna(), x))
 
         format_weights = {
-            "ODI": {
-                "batting": {
-                    "bat runs": 0.35,
-                    "bat ave": 0.25,
-                    "bat sr": 0.2,
-                    "bat 4s": 0.1,
-                    "bat 6s": 0.1,
-                },
-                "bowling": {
-                    "bowl wkts": 0.6,
-                    "bowl ave": 0.2,
-                    "bowl econ": 0.2,
-                },
-            }
-        }
-        format_type = "ODI"
+                    "T20": {
+                        "batting": {"bat runs": 0.3, "bat sr": 0.35,"bat ave": 0.25, "bat 6s": 0.2, "bat 4s": 0.15},
+                        "bowling": {"bowl wkts": 0.5, "bowl econ": 0.3, "bowl ave": 0.2},
+                        "fielding": {"field ct": 0.6, "field ct wk": 0.3, "field st": 0.1}
+                    }
+                }
+        format_type = "T20"
         batting_weights = format_weights[format_type]["batting"]
         bowling_weights = format_weights[format_type]["bowling"]
 
@@ -312,7 +313,7 @@ class OverallPlayerForm:
         df = self.load_data()
         filtered_df = self.filter_players_by_squad(df)
         form_scores = self.calculate_form(filtered_df)
-        print(Fore.GREEN + "\n\nForm scores calculated successfully (2021 - 2024)")
+        print(Fore.GREEN + "\n\nForm scores calculated successfully (2015 - 2024)")
         form_scores.to_csv(self.output_file, index=False)
 
 

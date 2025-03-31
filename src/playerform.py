@@ -24,9 +24,9 @@ class PlayerForm:
         self.config = config
 
         # File paths matching ipl20scrapper.py output
-        self.bowling_file = "../data/ipl/bowling_averages.csv"
-        self.batting_file = "../data/ipl/batting_averages.csv"
-        self.fielding_file = "../data/ipl/fielding_averages.csv"
+        self.bowling_file = "../data/ipl/bowling_recent_averages.csv"
+        self.batting_file = "../data/ipl/batting_recent_averages.csv"
+        self.fielding_file = "../data/ipl/fielding_recent_averages.csv"
         self.output_file = "../data/ipl/player_form_scores.csv"
         self.squad_file = config["data"].get("squad_file", "../data/ipl/squad.csv")
         self.previous_months = config["data"].get("previous_months", 36)
@@ -90,7 +90,6 @@ class PlayerForm:
     def filter_players_by_squad(self, df):
         """
         Filters the DataFrame to retain only rows for players present in the squad CSV file.
-        Updates the 'Team' column with the latest team from squad.csv.
         """
         try:
             squad_df = pd.read_csv(self.squad_file)
@@ -99,25 +98,18 @@ class PlayerForm:
             sys.exit(1)
 
         valid_players = squad_df["ESPN player name"].dropna().tolist()
-        player_to_team = squad_df.set_index("ESPN player name")["Team"].to_dict()
-        player_abbrev_to_full = squad_df.set_index("ESPN player name")["Player Name"].to_dict()
+        print(f"Total players in squad.csv: {len(valid_players)}")
 
         filtered_df = df[df["Player"].isin(valid_players)].copy()
+        print(f"Players in data after filtering: {len(filtered_df['Player'].unique())}")
 
-        squad_players_set = set(valid_players)
-        df_players_set = set(filtered_df["Player"])
-        missing_players = squad_players_set - df_players_set
-
+        missing_players = set(valid_players) - set(filtered_df["Player"])
         if missing_players:
             print(Fore.YELLOW + "Missing players from data:")
             for player in sorted(missing_players):
-                team = player_to_team.get(player, "Unknown Team")
-                print(f"- {player} ({team})")
+                print(f"- {player}")
         else:
             print(Fore.GREEN + "All players from the squad CSV file are present in the DataFrame.")
-
-        print(f"\nExtracted players: {len(df_players_set)} / {len(squad_players_set)}")
-        print(f"Missing players: {len(missing_players)}\n")
 
         # Merge squad data and overwrite Team with squad.csv's Team
         filtered_df = filtered_df.merge(
@@ -125,7 +117,7 @@ class PlayerForm:
             left_on="Player",
             right_on="ESPN player name",
             how="left",
-            suffixes=("_scraped", "_squad")  # Differentiate original and squad Team columns
+            suffixes=("_scraped", "_squad")
         )
 
         # Replace the original Team column with the squad Team

@@ -1,189 +1,105 @@
-# ==============================================================================
-# Update Player Data Script
-#
-# Author: Aditya Godse
-# Inspired by: Kaggle Notebook - https://www.kaggle.com/code/decentralized/webscrapping-espncricinfo-cricket-data
-#
-# Description:
-# This Python script updates previously scraped cricket data from ESPNcricinfo.
-# It scrapes the latest data for batting, bowling, and fielding for a specified number
-# of recent months, cleans the data, and updates existing CSV files by removing rows
-# corresponding to the updated time periods before merging in the new data.
-#
-# Instructions:
-# - To update data for a given number of months, run the script with an integer argument.
-#   For example, to update data for the last 1 month, run:
-#       python3 -m src.update 1
-#
-# - When integrated with a main application (e.g., via main.py), the update routine
-#   can be triggered via command-line flags, such as:
-#       python3 main.py --build --update 1
-#
-# Credentials & Acknowledgements:
-# - This script builds on the web scraping logic and methods originally shared in the
-#   Kaggle Notebook linked above.
-#
-# ==============================================================================
-
 import sys
+from datetime import datetime, timedelta
 import os
-import datetime
 import pandas as pd
-from .scrapper import Scrapper, BASE_URL, HEADERS
-from .playerform import UpdatePlayerForm
+# Assuming both scripts are in the same directory or adjust paths accordingly
+from ipl20scrapper import Scrapper  # Replace with your actual scraper module name
+from playerform import UpdatePlayerForm
 
+# Get the current system date dynamically
+CURRENT_DATE = datetime.now()
 
-def update_existing_data_files(data_dir="data", update_dir="output"):
+def get_date_range(months_back=3):
     """
-    For each data type (batting, bowling, fielding), update the existing data file
-    in `data_dir` using the new data file in `update_dir`. Rows with matching
-    'Start Date' and 'End Date' in the existing data are removed before appending
-    the new data.
+    Calculate the start and end dates for the past 'months_back' months.
+    Returns formatted strings for the Scrapper class.
     """
-    data_types = ["batting", "bowling", "fielding"]
+    end_date = CURRENT_DATE
+    start_date = end_date - timedelta(days=months_back * 30)  # Approximate months as 30 days
+    return start_date.strftime("%d %b %Y"), end_date.strftime("%d %b %Y")
 
-    for data_type in data_types:
-        old_file = os.path.join(data_dir, f"{data_type}_data.csv")
-        new_file = os.path.join(update_dir, f"{data_type}_data.csv")
-
-        # Check if the new update file exists
-        if not os.path.exists(new_file):
-            print(
-                f"Update file {new_file} does not exist. Skipping {data_type} update."
-            )
-            continue
-
-        try:
-            new_df = pd.read_csv(new_file, parse_dates=["Start Date", "End Date"])
-        except Exception as e:
-            print(f"Error reading {new_file}: {e}")
-            continue
-
-        if not os.path.exists(old_file):
-            try:
-                new_df.to_csv(old_file, index=False)
-                print(
-                    f"No existing {data_type} data found. Created new file at {old_file}."
-                )
-            except Exception as e:
-                print(f"Error writing to {old_file}: {e}")
-            continue
-
-        try:
-            old_df = pd.read_csv(old_file, parse_dates=["Start Date", "End Date"])
-        except Exception as e:
-            print(f"Error reading {old_file}: {e}")
-            continue
-
-        try:
-            new_df["time_tuple"] = new_df.apply(
-                lambda row: (row["Start Date"], row["End Date"]), axis=1
-            )
-            new_time_tuples = set(new_df["time_tuple"])
-            old_df["time_tuple"] = old_df.apply(
-                lambda row: (row["Start Date"], row["End Date"]), axis=1
-            )
-        except Exception as e:
-            print(f"Error processing date columns for {data_type}: {e}")
-            continue
-
-        updated_old_df = old_df[~old_df["time_tuple"].isin(new_time_tuples)].copy()
-        updated_old_df.drop(columns=["time_tuple"], inplace=True)
-        new_df.drop(columns=["time_tuple"], inplace=True)
-
-        updated_df = pd.concat([updated_old_df, new_df], ignore_index=True)
-        try:
-            updated_df.sort_values(by=["Start Date", "End Date"], inplace=True)
-        except Exception as e:
-            print(f"Error sorting updated data for {data_type}: {e}")
-
-        try:
-            updated_df.to_csv(old_file, index=False)
-            print(f"Updated {data_type} data successfully in {old_file}.")
-        except Exception as e:
-            print(f"Error writing updated data to {old_file}: {e}")
-
-
-def updatePlayerData(months_back):
+def update_ipl_data():
     """
-    Scrapes new data for the last `months_back` months.
+    Scrapes IPL data for the past 3 months and updates player form scores.
     """
-    current_date = datetime.datetime.now()
-    end_year = current_date.year
-    end_month = current_date.month
-    start_year = end_year
-
-    if months_back > end_month:
-        start_year -= 1
-        start_month = 12 + end_month - months_back + 1
-    else:
-        start_month = end_month - months_back + 1
-
-    scrapper = Scrapper()
-    time_spans = scrapper.generate_time_spans(start_year, end_year)
-    if months_back <= len(time_spans):
-        time_spans = time_spans[-months_back:]
-    else:
-        print(
-            f"Warning: Requested {months_back} months, but only {len(time_spans)} are available."
-        )
-        time_spans = time_spans[-months_back:]
-
-    print(f"Scraping data for the following time spans: {time_spans}")
-
-    data_frames = {}
-    for data_type in ["batting", "bowling", "fielding"]:
-        print(f"\n=== Processing {data_type} data ===")
-        try:
-            df = scrapper.scrape_player_data(data_type, time_spans)
-            if df is not None and not df.empty:
-                df = scrapper.clean_data(df, data_type)
-                print(f"Collected {len(df)} {data_type} records")
-                data_frames[data_type] = df
-            else:
-                print(f"No {data_type} data collected")
-        except Exception as e:
-            print(f"Error processing {data_type} data: {e}")
-
-    output_dir = "output"
     try:
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-            print(f"Created output directory: {output_dir}")
+        # Step 1: Set up date range (past 3 months to current date)
+        spanmin1, spanmax1 = get_date_range(months_back=3)
+        print(f"Scraping IPL data from {spanmin1} to {spanmax1}...")
+
+        # Step 2: Automated Scraper with pre-set date range and CSV file checks
+        class AutomatedScrapper(Scrapper):
+            def __init__(self):
+                self.ipl_teams_codes = {
+                    "KKR": "4341", "CSK": "4343", "MI": "4346", "RCB": "4340", "SRH": "5143",
+                    "RR": "4345", "PBKS": "4342", "DC": "4344", "GT": "6904", "LSG": "6903",
+                }
+                # Use the date range calculated earlier
+                self.spanmin1 = spanmin1
+                self.spanmax1 = spanmax1
+                self.url_template = (
+                    "https://stats.espncricinfo.com/ci/engine/stats/index.html?"
+                    "class=6;page={page};spanmax1={spanmax1};spanmin1={spanmin1};spanval1=span;"
+                    "team={team};template=results;type={type}"
+                )
+                self.base_urls = {
+                    "bowling": self.url_template.format(
+                        page=1, spanmax1=self.spanmax1, spanmin1=self.spanmin1, team="4340", type="bowling"
+                    ),
+                    "batting": self.url_template.format(
+                        page=1, spanmax1=self.spanmax1, spanmin1=self.spanmin1, team="4340", type="batting"
+                    ),
+                    "fielding": self.url_template.format(
+                        page=1, spanmax1=self.spanmax1, spanmin1=self.spanmin1, team="4340", type="fielding"
+                    )
+                }
+                self.output_files = {
+                    "batting": "../data/ipl/batting_recent_averages.csv",
+                    "bowling": "../data/ipl/bowling_recent_averages.csv",
+                    "fielding": "../data/ipl/fielding_recent_averages.csv"
+                }
+
+                # Ensure CSV files exist before scraping
+                self.ensure_csv_files()
+
+            def ensure_csv_files(self):
+                """
+                Creates CSV files if they don't exist, adding appropriate headers.
+                """
+                headers = {
+                    "batting": ["Player", "Matches", "Runs", "Average", "Strike Rate"],
+                    "bowling": ["Player", "Matches", "Wickets", "Average", "Economy"],
+                    "fielding": ["Player", "Matches", "Catches", "Run Outs"]
+                }
+
+                for category, file_path in self.output_files.items():
+                    # Create the directory if it doesn't exist
+                    dir_name = os.path.dirname(file_path)
+                    if not os.path.exists(dir_name):
+                        os.makedirs(dir_name)
+                    # Create the file with headers if it doesn't exist
+                    if not os.path.exists(file_path):
+                        print(f"Creating new file: {file_path}")
+                        df = pd.DataFrame(columns=headers[category])
+                        df.to_csv(file_path, index=False)
+
+        # Step 3: Initialize and run the scrapper
+        scrapper = AutomatedScrapper()
+        scrapper.scrape_and_clean()
+
+        # Step 4: Update player form with the newly scraped data
+        print("\nUpdating player form scores...")
+        UpdatePlayerForm()
+
+        print("IPL data update completed successfully.")
+
     except Exception as e:
-        print(f"Error creating output directory '{output_dir}': {e}")
+        print(f"An error occurred during the update process: {e}")
         sys.exit(1)
-
-    for data_type, df in data_frames.items():
-        csv_path = os.path.join(output_dir, f"{data_type}_data.csv")
-        try:
-            df = df.replace("", pd.NA)
-            df = df.dropna(axis=1, how="all")
-            df.to_csv(csv_path, index=False)
-            print(f"Saved {data_type} data to {csv_path}")
-        except Exception as e:
-            print(f"Error saving {data_type} data to {csv_path}: {e}")
-
-
-def update_player_data_main(months_back):
-    """
-    Update player data for the last `months_back` months, update the data files,
-    and update the player form.
-    """
-    if months_back < 1:
-        raise ValueError("Months back must be a positive integer.")
-    updatePlayerData(months_back)
-    update_existing_data_files()
-    UpdatePlayerForm()
-
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python3 update.py <months_back>")
-        sys.exit(1)
     try:
-        months_back = int(sys.argv[1])
-        update_player_data_main(months_back)
-    except Exception as e:
-        print(f"Error: {e}")
+        update_ipl_data()
+    except KeyboardInterrupt:
+        print("\nUpdate process interrupted by user.")
         sys.exit(1)

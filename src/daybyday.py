@@ -51,7 +51,6 @@ def get_date_input():
             print("End date must be after start date. Please try again.")
             continue
 
-        # Format dates with plus signs for the URL
         spanmin1 = start_date.strftime("%d+%b+%Y")
         spanmax1 = end_date.strftime("%d+%b+%Y")
         return spanmin1, spanmax1
@@ -64,18 +63,16 @@ class Scrapper:
         }
         self.spanmin1, self.spanmax1 = get_date_input()
         # Updated URL template with page parameter
-        self.url_template = ("https://stats.espncricinfo.com/ci/engine/stats/index.html?"
-                             "class=6;page={page};spanmax1={spanmax1};spanmin1={spanmin1};"
-                             "spanval1=span;team={team};template=results;type={type}")
+        self.url_template = "https://stats.espncricinfo.com/ci/engine/stats/index.html?class=6;page={page};spanmax1={spanmax1};spanmin1={spanmin1};spanval1=span;team={team};template=results;type={type}"
         self.base_urls = {
             "bowling": self.url_template.format(page=1, spanmax1=self.spanmax1, spanmin1=self.spanmin1, team="4340", type="bowling"),
             "batting": self.url_template.format(page=1, spanmax1=self.spanmax1, spanmin1=self.spanmin1, team="4340", type="batting"),
             "fielding": self.url_template.format(page=1, spanmax1=self.spanmax1, spanmin1=self.spanmin1, team="4340", type="fielding")
         }
         self.output_files = {
-            "batting": "../data/ipl/batting_recent_averages.csv",
-            "bowling": "../data/ipl/bowling_recent_averages.csv",
-            "fielding": "../data/ipl/fielding_recent_averages.csv"
+            "batting": "../data/ipl/batting_averages_overall.csv",
+            "bowling": "../data/ipl/bowling_averages_overall.csv",
+            "fielding": "../data/ipl/fielding_averages_overall.csv"
         }
 
     def clean_data(self, df, data_type):
@@ -119,7 +116,7 @@ class Scrapper:
         # Test phase (unchanged)
         test_data_type = "batting"
         test_url = self.base_urls[test_data_type]
-        test_headers = ["Team", "Player", "Mat", "Inns", "NO", "Runs", "HS", "Ave", "BF", "SR", "100", "50", "0", "4s", "6s"]
+        test_headers = ["Team", "Player", "Span", "Mat", "Inns", "NO", "Runs", "HS", "Ave", "BF", "SR", "100", "50", "0", "4s", "6s"]
 
         print(f"\nTesting hardcoded URL for {test_data_type}: {test_url}")
         test_data = []
@@ -180,11 +177,11 @@ class Scrapper:
         for data_type, base_url in self.base_urls.items():
             output_file = self.output_files[data_type]
             if data_type == "batting":
-                headers = ["Team", "Player", "Mat", "Inns", "NO", "Runs", "HS", "Ave", "BF", "SR", "100", "50", "0", "4s", "6s"]
+                headers = ["Team", "Player", "Span", "Mat", "Inns", "NO", "Runs", "HS", "Ave", "BF", "SR", "100", "50", "0", "4s", "6s"]
             elif data_type == "bowling":
-                headers = ["Team", "Player", "Mat", "Inns", "Overs", "Mdns", "Runs", "Wkts", "BBI", "Ave", "Econ", "SR", "4", "5"]
+                headers = ["Team", "Player", "Span", "Mat", "Inns", "Overs", "Mdns", "Runs", "Wkts", "BBI", "Ave", "Econ", "SR", "4", "5"]
             else:  # Fielding
-                headers = ["Team", "Player", "Mat", "Inns", "Dis", "Ct", "St", "Ct Wk", "Ct Fi", "MD", "D/I"]
+                headers = ["Team", "Player", "Span", "Mat", "Inns", "Dis", "Ct", "St", "Ct Wk", "Ct Fi", "MD", "D/I"]
             all_data = []
             for team, code in self.ipl_teams_codes.items():
                 retries = 3
@@ -194,6 +191,7 @@ class Scrapper:
                         url = self.url_template.format(page=1, spanmax1=self.spanmax1, spanmin1=self.spanmin1, team=code, type=data_type)
                         print(f"Scraping {data_type} data for {team}, page 1 to check pagination...")
                         driver.get(url)
+                        # Wait for the table to ensure the page is loaded
                         WebDriverWait(driver, 30).until(
                             EC.presence_of_element_located((
                                 By.XPATH,
@@ -201,14 +199,17 @@ class Scrapper:
                             ))
                         )
 
+                        # Wait for pagination links to load (if they exist)
                         total_pages = 1  # Default to 1 page
                         try:
+                            # Wait for any pagination link to appear
                             WebDriverWait(driver, 10).until(
                                 EC.presence_of_element_located((
                                     By.XPATH,
                                     "//a[contains(@class, 'PaginationLink')]"
                                 ))
                             )
+                            # Find the "Last" link
                             last_page_link = driver.find_element(
                                 By.XPATH,
                                 "//a[contains(@class, 'PaginationLink') and contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'last')]"
@@ -217,8 +218,13 @@ class Scrapper:
                             total_pages = int(last_page_url.split("page=")[1].split(";")[0])
                             print(f"Found pagination for {team} ({data_type}): {total_pages} pages")
                         except Exception as e:
-                            print(f"No pagination found for {team} ({data_type}), assuming 1 page.")
-                        
+                            print(f"No pagination found for {team} ({data_type}), assuming 1 page. ")
+                            # Save page source for debugging
+                            # with open(f"pagination_debug_{team}_{data_type}.html", "w", encoding="utf-8") as f:
+                            #     f.write(driver.page_source)
+                            # print(f"Page source saved to 'pagination_debug_{team}_{data_type}.html' for debugging.")
+
+                        # Loop through all pages dynamically
                         for page in range(1, total_pages + 1):
                             url = self.url_template.format(page=page, spanmax1=self.spanmax1, spanmin1=self.spanmin1, team=code, type=data_type)
                             print(f"Scraping {data_type} data for {team}, page {page}...")
@@ -261,19 +267,8 @@ class Scrapper:
 
             df = pd.DataFrame(all_data, columns=headers)
             df = self.clean_data(df, data_type)
-            
-            # --- Add "Span" column using the user-entered dates ---
-            start_dt = datetime.strptime(self.spanmin1.replace("+", " "), "%d %b %Y")
-            end_dt = datetime.strptime(self.spanmax1.replace("+", " "), "%d %b %Y")
-            span_value = f"{start_dt.year}-{end_dt.year}"
-            df["Span"] = span_value
-            # ---------------------------------------------------------
-
             df.to_csv(output_file, index=False)
             print(f"Saved cleaned {data_type} data to {output_file}")
-        
-        driver.quit()
-
 scrapper = Scrapper()
 scrapper.scrape_and_clean()
 
