@@ -97,19 +97,23 @@ class PlayerForm:
             print(Fore.RED + f"Error reading squad CSV file: {e}")
             sys.exit(1)
 
+        # Strip leading and trailing spaces from the 'ESPN player name' column
+        squad_df["ESPN player name"] = squad_df["ESPN player name"].str.strip()
+
         valid_players = squad_df["ESPN player name"].dropna().tolist()
         print(f"Total players in squad.csv: {len(valid_players)}")
 
+        # Check which players are in the data but not in the squad
+        data_players = df["Player"].unique().tolist()
+        missing_in_squad = set(data_players) - set(valid_players)
+        print(f"Players in batting data but missing in squad.csv: {missing_in_squad}")
+
+        # Filter players based on squad
         filtered_df = df[df["Player"].isin(valid_players)].copy()
         print(f"Players in data after filtering: {len(filtered_df['Player'].unique())}")
 
         missing_players = set(valid_players) - set(filtered_df["Player"])
-        if missing_players:
-            print(Fore.YELLOW + "Missing players from data:")
-            for player in sorted(missing_players):
-                print(f"- {player}")
-        else:
-            print(Fore.GREEN + "All players from the squad CSV file are present in the DataFrame.")
+        print(f"Players in squad.csv but missing in data: {missing_players}")
 
         # Merge squad data and overwrite Team with squad.csv's Team
         filtered_df = filtered_df.merge(
@@ -119,8 +123,6 @@ class PlayerForm:
             how="left",
             suffixes=("_scraped", "_squad")
         )
-
-        # Replace the original Team column with the squad Team
         filtered_df["Team"] = filtered_df["Team_squad"]
         filtered_df["Player"] = filtered_df["Player Name"]
 
