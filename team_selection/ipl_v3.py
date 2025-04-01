@@ -18,7 +18,9 @@ ground_df = pd.read_csv("data/ground.csv")
 # ============================================================
 # 1. Load Player Data
 # ============================================================
-df = pd.read_csv('data/merged_output.csv')
+#df = pd.read_csv('data/player_form_last3.csv')
+#df = pd.read_csv('data/merged_output.csv')
+df = pd.read_csv("data/form_2025.csv")
 
 # ============================================================
 # 2. Corrected Score Calculation (Case-Insensitive Role Check)
@@ -137,8 +139,8 @@ if __name__ == "__main__":
     df["Score"] = df.apply(calculate_score, axis=1)
     
     # Define teams and team weights
-    home_team1 = "DC"
-    away_team2 = "SRH"
+    home_team1 = "MI"
+    away_team2 = "KKR"
     team1_weight = 1.05
     team2_weight = 1.0  
     

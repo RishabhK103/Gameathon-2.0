@@ -3,7 +3,7 @@ import pulp
 
 ground_df=pd.read_csv("data/ground.csv")
 squad_df=pd.read_csv("data/SquadPlayerNames.csv")
-form_df=pd.read_csv("data/player_form.csv")
+form_df=pd.read_csv("data/merged_output.csv")
 
 #cleaing dataframes (removing unimportant values)
 form_df.drop(["Fielding Form","Credits","Player Type","Team"],axis=1,inplace=True)
@@ -37,7 +37,7 @@ def calculate_score(row):
         return allrounder_weight*max(batting,bowling)
     
 def optimize(team1,team2):
-    total_players=11
+    total_players=12
     home_weight=1.05
     away_weight=1.0
 
