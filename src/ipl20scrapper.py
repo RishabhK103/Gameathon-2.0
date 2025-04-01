@@ -1,3 +1,6 @@
+#------------------------NEW SCRAPPER FOR AUTOMATION IN UPDATE.PY--------------------------#
+
+
 import pandas as pd
 import numpy as np
 from selenium import webdriver
@@ -26,56 +29,28 @@ driver = webdriver.Chrome(service=service, options=options)
 
 driver.set_page_load_timeout(600)
 
-# Function to parse a date string and return a datetime object
-def parse_date(date_string):
-    try:
-        return datetime.strptime(date_string, "%d %b %Y")
-    except ValueError:
-        print("Invalid date format. Please use DD MMM YYYY (e.g., 17 Feb 2023).")
-        return None
-
-# Function to get and validate user input for dates
-def get_date_input():
-    while True:
-        start_date_str = input("Enter start date (e.g., 17 Feb 2023): ").strip()
-        start_date = parse_date(start_date_str)
-        if start_date is None:
-            continue
-
-        end_date_str = input("Enter end date (e.g., 22 Oct 2024): ").strip()
-        end_date = parse_date(end_date_str)
-        if end_date is None:
-            continue
-
-        if end_date <= start_date:
-            print("End date must be after start date. Please try again.")
-            continue
-
-        # Format dates with plus signs for the URL
-        spanmin1 = start_date.strftime("%d+%b+%Y")
-        spanmax1 = end_date.strftime("%d+%b+%Y")
-        return spanmin1, spanmax1
-
 class Scrapper:
-    def __init__(self):
+    def __init__(self, spanmin1, spanmax1):
         self.ipl_teams_codes = {
             "KKR": "4341", "CSK": "4343", "MI": "4346", "RCB": "4340", "SRH": "5143",
             "RR": "4345", "PBKS": "4342", "DC": "4344", "GT": "6904", "LSG": "6903",
         }
-        self.spanmin1, self.spanmax1 = get_date_input()
-        # Updated URL template with page parameter
-        self.url_template = ("https://stats.espncricinfo.com/ci/engine/stats/index.html?"
-                             "class=6;page={page};spanmax1={spanmax1};spanmin1={spanmin1};"
-                             "spanval1=span;team={team};template=results;type={type}")
+        self.spanmin1 = spanmin1  # e.g., "01+Jan+2025"
+        self.spanmax1 = spanmax1  # e.g., "31+Mar+2025"
+        self.url_template = (
+            "https://stats.espncricinfo.com/ci/engine/stats/index.html?"
+            "class=6;page={page};spanmax1={spanmax1};spanmin1={spanmin1};"
+            "spanval1=span;team={team};template=results;type={type}"
+        )
         self.base_urls = {
             "bowling": self.url_template.format(page=1, spanmax1=self.spanmax1, spanmin1=self.spanmin1, team="4340", type="bowling"),
             "batting": self.url_template.format(page=1, spanmax1=self.spanmax1, spanmin1=self.spanmin1, team="4340", type="batting"),
             "fielding": self.url_template.format(page=1, spanmax1=self.spanmax1, spanmin1=self.spanmin1, team="4340", type="fielding")
         }
         self.output_files = {
-            "batting": "../data/ipl/batting_recent_averages.csv",
-            "bowling": "../data/ipl/bowling_recent_averages.csv",
-            "fielding": "../data/ipl/fielding_recent_averages.csv"
+            "batting": "../data/ipl/batting_averages.csv",
+            "bowling": "../data/ipl/bowling_averages.csv",
+            "fielding": "../data/ipl/fielding_averages.csv"
         }
 
     def clean_data(self, df, data_type):
@@ -83,12 +58,10 @@ class Scrapper:
             print(f"No data to clean for {data_type}")
             return df
         try:
-            # Replace empty or placeholder values with NaN
             df.replace(["-", "", " "], np.nan, inplace=True)
             if "Player" in df.columns:
                 df["Player"] = df["Player"].str.strip()
             if data_type == "batting":
-                # Remove asterisk from HS (Highest Score)
                 if "HS" in df.columns:
                     df["HS"] = df["HS"].str.replace("*", "", regex=False)
                 int_cols = ["Mat", "Inns", "NO", "Runs", "BF", "100", "50", "0", "4s", "6s"]
@@ -116,7 +89,7 @@ class Scrapper:
         for file_path in self.output_files.values():
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
-        # Test phase (unchanged)
+        # Test phase
         test_data_type = "batting"
         test_url = self.base_urls[test_data_type]
         test_headers = ["Team", "Player", "Mat", "Inns", "NO", "Runs", "HS", "Ave", "BF", "SR", "100", "50", "0", "4s", "6s"]
@@ -190,7 +163,6 @@ class Scrapper:
                 retries = 3
                 for attempt in range(retries):
                     try:
-                        # Load the first page to determine the total number of pages
                         url = self.url_template.format(page=1, spanmax1=self.spanmax1, spanmin1=self.spanmin1, team=code, type=data_type)
                         print(f"Scraping {data_type} data for {team}, page 1 to check pagination...")
                         driver.get(url)
@@ -201,7 +173,7 @@ class Scrapper:
                             ))
                         )
 
-                        total_pages = 1  # Default to 1 page
+                        total_pages = 1
                         try:
                             WebDriverWait(driver, 10).until(
                                 EC.presence_of_element_located((
@@ -216,7 +188,7 @@ class Scrapper:
                             last_page_url = last_page_link.get_attribute("href")
                             total_pages = int(last_page_url.split("page=")[1].split(";")[0])
                             print(f"Found pagination for {team} ({data_type}): {total_pages} pages")
-                        except Exception as e:
+                        except Exception:
                             print(f"No pagination found for {team} ({data_type}), assuming 1 page.")
                         
                         for page in range(1, total_pages + 1):
@@ -262,19 +234,18 @@ class Scrapper:
             df = pd.DataFrame(all_data, columns=headers)
             df = self.clean_data(df, data_type)
             
-            # --- Add "Span" column using the user-entered dates ---
+            # Add "Span" column using the provided dates
             start_dt = datetime.strptime(self.spanmin1.replace("+", " "), "%d %b %Y")
             end_dt = datetime.strptime(self.spanmax1.replace("+", " "), "%d %b %Y")
             span_value = f"{start_dt.year}-{end_dt.year}"
             df["Span"] = span_value
-            # ---------------------------------------------------------
 
             df.to_csv(output_file, index=False)
             print(f"Saved cleaned {data_type} data to {output_file}")
         
         driver.quit()
 
-scrapper = Scrapper()
-scrapper.scrape_and_clean()
-
-driver.quit()
+# Example usage (commented out since update.py will handle instantiation)
+# spanmin1, spanmax1 = "01+Jan+2025", "31+Mar+2025"
+# scrapper = Scrapper(spanmin1, spanmax1)
+# scrapper.scrape_and_clean()
