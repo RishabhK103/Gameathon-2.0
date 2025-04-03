@@ -21,6 +21,8 @@ from datetime import datetime, timedelta
 from ipl20scrapper import Scrapper
 
 from playerform import UpdatePlayerForm  
+from update_form import assign_mean_values
+from merge import merge 
 
 # Get the current system date dynamically
 CURRENT_DATE = datetime.now()
@@ -96,15 +98,27 @@ def update_player_data(months_back=3):
 
 
     UpdatePlayerForm()
+    print("Updated player forms Successfully!! Now starting filling missing values")
+
+    assign_mean_values("../data/ipl/player_form_scores.csv", "../data/ipl/player_form_scores_final.csv")
+    print("Assigned mean values to missing cells successfully!now merginf the recent form and the previous 2021-2024 form!!!")
+
+    csv1 = pd.read_csv("../data/ipl/player_form_last3.csv")
+    csv2 = pd.read_csv("../data/ipl/player_form_scores_final.csv")
+    
+    merge(csv1,csv2)
+    print("Successfully completed the merge of historic and recent data the data is now ready to be worked on !")
+
 
     print("IPL data update completed successfully.")
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python3 update.py <months_back>")
-        sys.exit(1)
+    # if len(sys.argv) != 2:
+    #     print("Usage: python3 update.py <months_back>")
+    #     sys.exit(1)
     try:
-        months_back = int(sys.argv[1])
+        # months_back = int(sys.argv[1])
+        months_back=3
         update_player_data(months_back)
     except Exception as e:
         print(f"Error: {e}")
