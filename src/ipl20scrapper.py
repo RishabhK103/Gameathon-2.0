@@ -3,249 +3,205 @@ import numpy as np
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
+from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import os
 import time
-from selenium.common.exceptions import TimeoutException
-from datetime import datetime
-import urllib3.exceptions
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
-# Browser and driver setup
-brave_path = "/usr/bin/brave"
-chrome_driver_path = "/usr/bin/chromedriver"
-options = Options()
-options.binary_location = brave_path
-options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-options.add_argument("--headless")
-options.add_argument("--no-sandbox")
-options.add_argument("--disable-dev-shm-usage")
-service = Service(chrome_driver_path)
-driver = webdriver.Chrome(service=service, options=options)
+def ensure_directory(file_path):
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
-driver.set_page_load_timeout(600)
-
-# Function to parse a date string and return a datetime object
-def parse_date(date_string):
-    try:
-        return datetime.strptime(date_string, "%d %b %Y")
-    except ValueError:
-        print("Invalid date format. Please use DD MMM YYYY (e.g., 17 Feb 2023).")
-        return None
-
-# Function to get and validate user input for dates
-def get_date_input():
-    while True:
-        start_date_str = input("Enter start date (e.g., 17 Feb 2023): ").strip()
-        start_date = parse_date(start_date_str)
-        if start_date is None:
-            continue
-
-        end_date_str = input("Enter end date (e.g., 22 Oct 2024): ").strip()
-        end_date = parse_date(end_date_str)
-        if end_date is None:
-            continue
-
-        if end_date <= start_date:
-            print("End date must be after start date. Please try again.")
-            continue
-
-        spanmin1 = start_date.strftime("%d+%b+%Y")
-        spanmax1 = end_date.strftime("%d+%b+%Y")
-        return spanmin1, spanmax1
-
-class Scrapper:
+class Scraper:
     def __init__(self):
         self.ipl_teams_codes = {
-            "KKR": "4341", "CSK": "4343", "MI": "4346", "RCB": "4340", "SRH": "5143",
+            "KKR": "4341", "CHE": "4343", "MI": "4346", "RCB": "4340", "SRH": "5143",
             "RR": "4345", "PBKS": "4342", "DC": "4344", "GT": "6904", "LSG": "6903",
         }
-        self.spanmin1, self.spanmax1 = get_date_input()
-        # Updated URL template with page parameter
-        self.url_template = "https://stats.espncricinfo.com/ci/engine/stats/index.html?class=6;page={page};spanmax1={spanmax1};spanmin1={spanmin1};spanval1=span;team={team};template=results;type={type}"
-        self.base_urls = {
-            "bowling": self.url_template.format(page=1, spanmax1=self.spanmax1, spanmin1=self.spanmin1, team="4340", type="bowling"),
-            "batting": self.url_template.format(page=1, spanmax1=self.spanmax1, spanmin1=self.spanmin1, team="4340", type="batting"),
-            "fielding": self.url_template.format(page=1, spanmax1=self.spanmax1, spanmin1=self.spanmin1, team="4340", type="fielding")
+        self.ground_ids = {
+            "Eden Gardens": "292", "M.Chinnaswamy Stadium": "683", "MA Chidambaram Stadium": "291",
+            "Wankhede Stadium": "713", "Rajiv Gandhi International Stadium": "1981"
         }
-        self.output_files = {
-            "batting": "../data/ipl/batting_averages.csv",
-            "bowling": "../data/ipl/bowling_averages.csv",
-            "fielding": "../data/ipl/fielding_averages.csv"
-        }
+        self.url_template = "https://stats.espncricinfo.com/ci/engine/stats/index.html?class=6;page={page};spanmax1={spanmax1};spanmin1={spanmin1};spanval1=span;team={team};ground={ground};opposition={opposition};template=results;type={type}"
+        
+        # Enhanced Chrome options
+        options = Options()
+        options.add_argument("--headless")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-extensions")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--ignore-certificate-errors")
+        options.add_argument("user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36")
+        
+        self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+        self.driver.set_page_load_timeout(300)
+        self.driver.set_script_timeout(300)
+        self.driver.implicitly_wait(10)
 
     def clean_data(self, df, data_type):
         if df is None or df.empty:
             print(f"No data to clean for {data_type}")
             return df
-        try:
-            rename_dict = {
-                "HS": "HighestScore", "Mdns": "Maidens", "Wkts": "Wickets", "Econ": "Economy", "BBI": "BestBowling",
-                "Dis": "Dismissals", "Ct": "Catches", "St": "Stumpings", "Ct Wk": "CatchesWk", "Ct Fi": "CatchesFi",
-                "MD": "MaxDismissals", "D/I": "DismissalsPerInnings"
-            }
-            df.rename(columns=rename_dict, inplace=True)
-            df.replace(["-", "", " "], np.nan, inplace=True)
-            if "Player" in df.columns:
-                df["Player"] = df["Player"].str.strip()
-            if data_type == "batting":
-                if "HighestScore" in df.columns:
-                    df["HighestScore"] = df["HighestScore"].str.replace("*", "", regex=False)
-                int_cols = ["Mat", "Inns", "NO", "Runs", "BF", "100", "50", "0", "4s", "6s"]
-                float_cols = ["Ave", "SR"]
-            elif data_type == "bowling":
-                int_cols = ["Mat", "Inns", "Maidens", "Runs", "Wickets", "4", "5"]
-                float_cols = ["Ave", "Economy", "SR"]
-            elif data_type == "fielding":
-                int_cols = ["Mat", "Inns", "Dismissals", "Catches", "Stumpings", "CatchesWk", "CatchesFi", "MaxDismissals"]
-                float_cols = ["DismissalsPerInnings"]
-            else:
-                int_cols = []
-                float_cols = []
-            for col in int_cols:
-                if col in df.columns:
-                    df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int64")
-            for col in float_cols:
-                if col in df.columns:
-                    df[col] = pd.to_numeric(df[col], errors="coerce").astype(float)
-        except Exception as e:
-            print(f"Error cleaning data for {data_type}: {e}")
+        
+        df.replace(["-", "", " ", "NA"], np.nan, inplace=True)
+        
+        if "Player" in df.columns:
+            df["Player"] = df["Player"].str.strip()
+        
+        # More robust data type conversion
+        if data_type == "batting":
+            int_cols = ["Mat", "Inns", "NO", "Runs", "BF", "100", "50", "0", "4s", "6s"]
+            float_cols = ["Ave", "SR"]
+            
+            if "HS" in df.columns:
+                df["HS"] = df["HS"].str.replace("*", "", regex=False)
+        elif data_type == "bowling":
+            int_cols = ["Mat", "Inns", "Mdns", "Runs", "Wkts", "4", "5"]
+            float_cols = ["Ave", "Econ", "SR"]
+        else:
+            return df
+        
+        for col in int_cols:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int64")
+        
+        for col in float_cols:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors="coerce").astype(float)
+        
         return df
 
-    def scrape_and_clean(self):
-        for file_path in self.output_files.values():
-            os.makedirs(os.path.dirname(file_path), exist_ok=True)
-
-        # Test phase
-        test_data_type = "batting"
-        test_url = self.base_urls[test_data_type]
-        test_headers = ["Team", "Player", "Span", "Mat", "Inns", "NO", "Runs", "HighestScore", "Ave", "BF", "SR", "100", "50", "0", "4s", "6s"]
-
-        print(f"\nTesting hardcoded URL for {test_data_type}: {test_url}")
-        test_data = []
-        retries = 3
-        for attempt in range(retries):
-            try:
-                driver.get(test_url)
-                table = WebDriverWait(driver, 30).until(
-                    EC.presence_of_element_located((
-                        By.XPATH, 
-                        "//table[@class='engineTable'][.//caption[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'overall figures')]]"
-                    ))
-                )
-                rows = table.find_elements(By.TAG_NAME, "tr")[1:]
-                for row in rows:
-                    cells = row.find_elements(By.TAG_NAME, "td")
-                    if not cells:
-                        continue
-                    # Only include non-empty cells
-                    cell_data = [cell.text for cell in cells if cell.text.strip() != ""]
-                    if not cell_data:  # Skip rows with no meaningful data
-                        continue
-                    row_data = ["RCB"] + cell_data
-                    # Check if the number of columns matches the expected headers
-                    if len(row_data) != len(test_headers):
-                        print(f"Column mismatch in test data: expected {len(test_headers)} columns, got {len(row_data)}")
-                        print(f"Row data: {row_data}")
-                        continue
-                    test_data.append(row_data)
-                print(f"Successfully scraped {len(test_data)} rows for {test_data_type} from RCB:")
-                if test_data:
-                    print(f"Sample row: {test_data[0]}")
-                    print(f"Number of columns in data: {len(test_data[0])}")
-                    print(f"Expected number of columns: {len(test_headers)}")
-                    df_test = pd.DataFrame(test_data, columns=test_headers)
-                    print(df_test.head())
-                else:
-                    print("No data scraped in test phase.")
-                break
-            except (TimeoutException, urllib3.exceptions.ReadTimeoutError) as e:
-                print(f"Timeout while testing {test_url} on attempt {attempt + 1}/{retries}: {e}")
-                if attempt == retries - 1:
-                    print("Failed to load test URL after all retries.")
-                    with open("timeout_page.html", "w", encoding="utf-8") as f:
-                        f.write(driver.page_source)
-                    print("Page source saved to 'timeout_page.html' for debugging.")
-                    driver.quit()
-                    return
-                time.sleep(5)
-            except Exception as e:
-                print(f"Error testing {test_url}: {e}")
-                driver.quit()
-                return
-
-        # Confirmation
-        proceed = input("\nDoes the test data look correct? (yes/no): ").strip().lower()
-        if proceed != "yes":
-            print("Aborting full scrape.")
-            driver.quit()
+    def scrape_data(self, data_type, spanmin1, spanmax1, team=None, ground=None, opposition=None, output_file=None):
+        # Skip if file already exists with non-zero size
+        if os.path.exists(output_file) and os.path.getsize(output_file) > 0:
+            print(f"Skipping {data_type} scrape for {output_file} as it already exists")
             return
 
-        # Full scrape with pagination
-        print("\nProceeding with full scrape...")
-        for data_type, base_url in self.base_urls.items():
-            output_file = self.output_files[data_type]
-            if data_type == "batting":
-                headers = ["Team", "Player", "Span", "Mat", "Inns", "NO", "Runs", "HighestScore", "Ave", "BF", "SR", "100", "50", "0", "4s", "6s"]
-            elif data_type == "bowling":
-                headers = ["Team", "Player", "Span", "Mat", "Inns", "Overs", "Maidens", "Runs", "Wickets", "BestBowling", "Ave", "Economy", "SR", "4", "5"]
-            else:  # Fielding
-                headers = ["Team", "Player", "Span", "Mat", "Inns", "Dismissals", "Catches", "Stumpings", "CatchesWk", "CatchesFi", "MaxDismissals", "DismissalsPerInnings"]
-            all_data = []
-            for team, code in self.ipl_teams_codes.items():
-                retries = 3
-                for attempt in range(retries):
+        headers = {
+            "batting": ["Team", "Player", "Span", "Mat", "Inns", "NO", "Runs", "HS", "Ave", "BF", "SR", "100", "50", "0", "4s", "6s"],
+            "bowling": ["Team", "Player", "Span", "Mat", "Inns", "Overs", "Mdns", "Runs", "Wkts", "BBI", "Ave", "Econ", "SR", "4", "5"]
+        }[data_type]
+
+        all_data = []
+        teams = [team] if team else self.ipl_teams_codes.keys()
+
+        for team_name in teams:
+            team_code = self.ipl_teams_codes[team_name]
+            retries = 5  # Increased retry attempts
+            
+            for attempt in range(retries):
+                try:
+                    # Construct initial URL
+                    url = self.url_template.format(
+                        page=1, spanmax1=spanmax1, spanmin1=spanmin1, team=team_code,
+                        ground=ground if ground else "", 
+                        opposition=opposition if opposition else "", 
+                        type=data_type
+                    )
+                    print(f"Scraping {data_type} for {team_name}, attempt {attempt + 1}/{retries}: {url}")
+                    
+                    # Navigate to page
+                    self.driver.get(url)
+                    
+                    # Wait for table to load
+                    table = WebDriverWait(self.driver, 30).until(
+                        EC.presence_of_element_located((
+                            By.XPATH, 
+                            "//table[@class='engineTable'][.//caption[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'overall figures')]]"
+                        ))
+                    )
+                    
+                    # Determine total pages
+                    total_pages = 1
                     try:
-                        # Loop through pages 1 and 2
-                        for page in range(1, 3):  # Pages 1 and 2
-                            url = self.url_template.format(page=page, spanmax1=self.spanmax1, spanmin1=self.spanmin1, team=code, type=data_type)
-                            print(f"Scraping {data_type} data for {team}, page {page}...")
-                            driver.get(url)
-                            table = WebDriverWait(driver, 30).until(
-                                EC.presence_of_element_located((
-                                    By.XPATH, 
-                                    "//table[@class='engineTable'][.//caption[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'overall figures')]]"
-                                ))
-                            )
-                            rows = table.find_elements(By.TAG_NAME, "tr")[1:]
-                            for row in rows:
-                                cells = row.find_elements(By.TAG_NAME, "td")
-                                if not cells:
-                                    continue
-                                # Only include non-empty cells
-                                cell_data = [cell.text for cell in cells if cell.text.strip() != ""]
-                                if not cell_data:  # Skip rows with no meaningful data
-                                    continue
-                                row_data = [team] + cell_data
-                                # Check if the number of columns matches the expected headers
-                                if len(row_data) != len(headers):
-                                    print(f"Column mismatch for {team} ({data_type}, page {page}): expected {len(headers)} columns, got {len(row_data)}")
-                                    print(f"Row data: {row_data}")
-                                    continue
-                                all_data.append(row_data)
-                        print(f"Scraped {data_type} averages for {team}: 2 pages")
+                        last_page_link = self.driver.find_element(By.XPATH, "//a[contains(@class, 'PaginationLink') and contains(text(), 'Last')]")
+                        total_pages = int(last_page_link.get_attribute("href").split("page=")[1].split(";")[0])
+                    except (NoSuchElementException, IndexError):
+                        print(f"No pagination found for {team_name}, using single page")
+                    
+                    print(f"Processing {total_pages} pages for {team_name}")
+                    
+                    # Scrape data from all pages
+                    for page in range(1, total_pages + 1):
+                        url = self.url_template.format(
+                            page=page, spanmax1=spanmax1, spanmin1=spanmin1, team=team_code,
+                            ground=ground if ground else "", 
+                            opposition=opposition if opposition else "", 
+                            type=data_type
+                        )
+                        
+                        self.driver.get(url)
+                        time.sleep(2)  # Small delay to ensure page loads
+                        
+                        # Find table rows
+                        rows = self.driver.find_elements(By.XPATH, "//table[@class='engineTable'][.//caption[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'overall figures')]]/tbody/tr")
+                        
+                        for row in rows[1:]:  # Skip header row
+                            cells = [cell.text.strip() for cell in row.find_elements(By.TAG_NAME, "td") if cell.text.strip()]
+                            
+                            if cells and len(cells) == len(headers) - 1:
+                                all_data.append([team_name] + cells)
+                    
+                    # If data was successfully scraped, break retry loop
+                    if all_data:
                         break
-                    except (TimeoutException, urllib3.exceptions.ReadTimeoutError) as e:
-                        print(f"Timeout for {team} ({data_type}) on attempt {attempt + 1}/{retries}: {e}")
-                        if attempt == retries - 1:
-                            print(f"Failed to scrape {data_type} data for {team} after {retries} attempts.")
-                        time.sleep(5)
-                    except Exception as e:
-                        print(f"Error scraping {team} ({data_type}): {e}")
-                        break
-                    time.sleep(1)
+                
+                except (TimeoutException, Exception) as e:
+                    print(f"Error scraping {data_type} for {team_name} on attempt {attempt + 1}/{retries}: {e}")
+                    time.sleep(5)  # Wait before retrying
+        
+        # Create DataFrame or empty DataFrame if no data
+        df = pd.DataFrame(all_data, columns=headers) if all_data else pd.DataFrame(columns=headers)
+        
+        # Clean and save data
+        df = self.clean_data(df, data_type)
+        
+        # Ensure output directory exists
+        ensure_directory(output_file)
+        
+        # Save data, even if empty
+        df.to_csv(output_file, index=False)
+        print(f"Saved {data_type} data to {output_file} (rows: {len(df)})")
 
-            if not all_data:
-                print(f"No data scraped for {data_type}")
-                continue
+    def scrape_all(self, venue, team1, team2):
+        # Historical data with wider date range
+        self.scrape_data("batting", "01+Jan+2020", "01+Jun+2024", output_file="data/historical/historical_batting.csv")
+        self.scrape_data("bowling", "01+Jan+2020", "01+Jun+2024", output_file="data/historical/historical_bowling.csv")
+        
+        # Recent data with narrow date range
+        self.scrape_data("batting", "01+Jan+2025", "31+Dec+2025", output_file="data/recent/recent_batting.csv")
+        self.scrape_data("bowling", "01+Jan+2025", "31+Dec+2025", output_file="data/recent/recent_bowling.csv")
+        
+        # Get ground ID
+        ground_id = self.ground_ids.get(venue, "")
+        
+        # Venue and opposition-specific data
+        for team in [team1, team2]:
+            # Venue data
+            self.scrape_data("batting", "01+Jan+2020", "01+Jun+2024", team=team, ground=ground_id,
+                             output_file=f"data/venue/venue_batting_{team}_{ground_id}.csv")
+            self.scrape_data("bowling", "01+Jan+2020", "01+Jun+2024", team=team, ground=ground_id,
+                             output_file=f"data/venue/venue_bowling_{team}_{ground_id}.csv")
+            
+            # Recent venue data
+            self.scrape_data("batting", "01+Jan+2025", "31+Dec+2025", team=team, ground=ground_id,
+                             output_file=f"data/venue/recent_venue_batting_{team}_{ground_id}.csv")
+            self.scrape_data("bowling", "01+Jan+2025", "31+Dec+2025", team=team, ground=ground_id,
+                             output_file=f"data/venue/recent_venue_bowling_{team}_{ground_id}.csv")
 
-            df = pd.DataFrame(all_data, columns=headers)
-            df = self.clean_data(df, data_type)
-            df.to_csv(output_file, index=False)
-            print(f"Saved cleaned {data_type} data to {output_file}")
+        # Opposition-specific data
+        for team, opp in [(team1, team2), (team2, team1)]:
+            opp_id = self.ipl_teams_codes[opp]
+            self.scrape_data("batting", "01+Jan+2020", "01+Jun+2024", team=team, opposition=opp_id,
+                             output_file=f"data/opposition/opposition_batting_{team}_vs_{opp}.csv")
+            self.scrape_data("bowling", "01+Jan+2020", "01+Jun+2024", team=team, opposition=opp_id,
+                             output_file=f"data/opposition/opposition_bowling_{team}_vs_{opp}.csv")
 
-scrapper = Scrapper()
-scrapper.scrape_and_clean()
-
-driver.quit()
+    def close(self):
+        try:
+            self.driver.quit()
+        except Exception as e:
+            print(f"Error closing webdriver: {e}")

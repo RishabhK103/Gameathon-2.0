@@ -37,7 +37,7 @@ def calculate_score(row):
         return allrounder_weight*max(batting,bowling)
     
 def optimize(team1,team2):
-    total_players=12
+    total_players=11
     home_weight=1.05
     away_weight=1.0
 
@@ -121,8 +121,8 @@ if __name__=="__main__":
 
     selection_df["Score"]=selection_df.apply(calculate_score,axis=1)
     
-    home_team1 = "MI"
-    away_team2 = "KKR"
+    home_team1 = "KKR"
+    away_team2 = "SRH"
 
     best_team=optimize(team1=home_team1,team2=away_team2) 
     

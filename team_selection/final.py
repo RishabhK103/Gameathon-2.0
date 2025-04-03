@@ -115,14 +115,14 @@ if __name__=="__main__":
     batter_weight=float(ground_data['Batting'])
     keeper_weight=float(ground_data['Batting'])
     bowler_weight=float(ground_data['Bowling'])
-    allrounder_weight=((batter_weight+bowler_weight)/2)
+    allrounder_weight=((batter_weight+bowler_weight)/2)*1.05
     if allrounder_weight<1:
         allrounder_weight=1.0
 
     selection_df["Score"]=selection_df.apply(calculate_score,axis=1)
     
-    home_team1 = "MI"
-    away_team2 = "KKR"
+    home_team1 = "KKR"
+    away_team2 = "SRH"
 
     best_team=optimize(team1=home_team1,team2=away_team2) 
     
