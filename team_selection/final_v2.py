@@ -3,7 +3,7 @@ import pulp
 
 ground_df=pd.read_csv("data/ground.csv")
 squad_df=pd.read_csv("data/SquadPlayerNames.csv")
-form_df=pd.read_csv("data/merged_output.csv")
+form_df=pd.read_csv("data/merged_output_updated.csv")
 
 #cleaing dataframes (removing unimportant values)
 form_df.drop(["Fielding Form","Credits","Player Type","Team"],axis=1,inplace=True)
