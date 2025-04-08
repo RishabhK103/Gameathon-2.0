@@ -38,7 +38,7 @@ def calculate_score(row):
     
 def optimize(team1,team2):
     total_players=11
-    home_weight=1.03
+    home_weight=1.05
     away_weight=1.0
 
     team_df = selection_df[selection_df["Team"].isin([team1, team2])].copy()
@@ -66,10 +66,10 @@ def optimize(team1,team2):
     
     # Role constraints
     prob += pulp.lpSum([x[i] for i in batters.index]) >= 1, "Min_Batters"
-    prob += pulp.lpSum([x[i] for i in bowlers.index]) >= 1, "Min_Bowlers"
-    prob += pulp.lpSum([x[i] for i in bowling_options.index]) >= 5, "Min_Bowling_Options"
+    prob += pulp.lpSum([x[i] for i in bowlers.index]) >= 3, "Min_Bowlers"
+    prob += pulp.lpSum([x[i] for i in bowling_options.index]) >= 6, "Min_Bowling_Options"
     prob += pulp.lpSum([x[i] for i in keepers.index]) >= 1, "Min_Keepers"
-    #prob += pulp.lpSum([x[i] for i in allrounders.index]) >= 1,
+    prob += pulp.lpSum([x[i] for i in allrounders.index]) >= 1, "Min_Keepers"
     
     # Team constraints
     prob += pulp.lpSum([x[i] for i in team_df[team_df["Team"] == team1].index]) >= 1, f"Min_from_{team1}"
@@ -122,8 +122,8 @@ if __name__=="__main__":
 
     selection_df["Score"]=selection_df.apply(calculate_score,axis=1)
     
-    home_team1 = "SRH"
-    away_team2 = "GT"
+    home_team1 = "LSG"
+    away_team2 = "MI"
 
     best_team=optimize(team1=home_team1,team2=away_team2) 
     
