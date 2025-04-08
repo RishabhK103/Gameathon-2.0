@@ -46,5 +46,5 @@ ga:
   mutation_rate: 0.1
 
 match:
-  1: "RCB"
-  2
+  1: "LSG"
+  2: "MI"
