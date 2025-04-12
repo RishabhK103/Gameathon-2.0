@@ -79,7 +79,7 @@ def optimize(total_players=11):
     prob += pulp.lpSum([x[i] for i in bowlers.index]) >= 1, "Min_Bowlers"
     prob += pulp.lpSum([x[i] for i in bowling_options.index]) >= 5, "Min_Bowling_Options"
     prob += pulp.lpSum([x[i] for i in keepers.index]) >= 1, "Min_Keepers"
-    prob += pulp.lpSum([x[i] for i in allrounders.index]) >= 1, "Min_Allrounders"  # New constraint
+    prob += pulp.lpSum([x[i] for i in allrounders.index]) >= 1, "Min_Allrounders"
     
     # Solve
     prob.solve()
@@ -92,12 +92,33 @@ def optimize(total_players=11):
     selected_11 = team_df.loc[selected].copy()
     selected_11.sort_values("Score", ascending=False, inplace=True)
     
-    # Assign roles
+    # Assign roles with captain and vice-captain lineupOrder < 6
     selected_11["Role_In_Team"] = "Player"
     if len(selected_11) > 0:
-        selected_11.iloc[0, selected_11.columns.get_loc("Role_In_Team")] = "Captain"
-    if len(selected_11) > 1:
-        selected_11.iloc[1, selected_11.columns.get_loc("Role_In_Team")] = "Vice Captain"
+        # Select captain and vice-captain from players with lineupOrder < 6
+        captain_candidates = selected_11[selected_11["lineupOrder"] < 5]
+        if len(captain_candidates) >= 2:
+            # Assign captain to highest-scoring eligible player
+            captain_idx = captain_candidates.index[0]
+            selected_11.loc[captain_idx, "Role_In_Team"] = "Captain"
+            # Assign vice-captain to second-highest-scoring eligible player
+            vice_captain_idx = captain_candidates.index[1]
+            selected_11.loc[vice_captain_idx, "Role_In_Team"] = "Vice Captain"
+        elif len(captain_candidates) == 1:
+            # Only one eligible player: make them captain, fallback for vice-captain
+            captain_idx = captain_candidates.index[0]
+            selected_11.loc[captain_idx, "Role_In_Team"] = "Captain"
+            print("Only one player with lineupOrder < 6 available. Assigning vice-captain from remaining players.")
+            remaining_players = selected_11[selected_11["Role_In_Team"] != "Captain"]
+            if len(remaining_players) > 0:
+                vice_captain_idx = remaining_players.index[0]  # Next highest score
+                selected_11.loc[vice_captain_idx, "Role_In_Team"] = "Vice Captain"
+        else:
+            # No eligible players: fallback to original logic
+            print("No players with lineupOrder < 6 available for captain and vice-captain. Using highest scorers.")
+            selected_11.iloc[0, selected_11.columns.get_loc("Role_In_Team")] = "Captain"
+            if len(selected_11) > 1:
+                selected_11.iloc[1, selected_11.columns.get_loc("Role_In_Team")] = "Vice Captain"
     
     return selected_11[["Player", "Team", "Player Type", "Score", "Role_In_Team"]]
 
@@ -119,7 +140,7 @@ if __name__ == "__main__":
 
     # Set ground-specific weights
     ground_data = ground_df.iloc[ground_index]
-    batter_weight = float(ground_data['Batting'])*1.02
+    batter_weight = float(ground_data['Batting'])
     keeper_weight = float(ground_data['Batting'])
     bowler_weight = float(ground_data['Bowling'])
     allrounder_weight = ((batter_weight + bowler_weight) / 2)
