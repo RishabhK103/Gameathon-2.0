@@ -1,13 +1,8 @@
 click
 requests
 DateTime
-beautifulsoup4
 pandas
 numpy
-tqdm
-colorama
-pyyaml
 scipy
-matplotlib
 PuLP
-shap
+selenium
