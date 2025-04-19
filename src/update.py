@@ -1,55 +1,11 @@
 import os
-import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime
 from src.scrapper.scrapper import Scrapper
 
 from src.scrapper.player_form import UpdatePlayerForm
-from src.scrapper.update_form import assign_mean_values
-from src.scrapper.merge import merge
+from src.utils import get_date_range, clean_files, merge
 
 CURRENT_DATE = datetime.now()
-
-
-def get_date_range(months_back=3):
-    """
-    Calculate the start and end dates for the past 'months_back' months.
-    Returns formatted strings for the Scrapper class.
-    """
-    end_date = CURRENT_DATE
-    start_date = end_date - timedelta(days=months_back * 30)
-    return start_date.strftime("%d+%b+%Y"), end_date.strftime("%d+%b+%Y")
-
-
-def update_existing_data_files(data_dir="data/recent_averages"):
-    """
-    Update existing CSV files with new data, removing overlapping spans.
-    """
-    data_types = ["batting", "bowling", "fielding"]
-    for data_type in data_types:
-        old_file = os.path.join(data_dir, f"{data_type}.csv")
-        new_file = os.path.join(data_dir, f"{data_type}_recent_averages_temp.csv")
-
-        if not os.path.exists(new_file):
-            print(f"New file {new_file} not found. Skipping {data_type} update.")
-            continue
-
-        new_df = pd.read_csv(new_file)
-        if not os.path.exists(old_file):
-            new_df.to_csv(old_file, index=False)
-            print(f"Created new file {old_file} with updated {data_type} data.")
-            os.remove(new_file)
-            continue
-
-        old_df = pd.read_csv(old_file)
-        new_span = new_df["Span"].iloc[0] if "Span" in new_df.columns else None
-        if new_span and "Span" in old_df.columns:
-            updated_old_df = old_df[old_df["Span"] != new_span]
-        else:
-            updated_old_df = old_df  # If no Span column, append without filtering
-        updated_df = pd.concat([updated_old_df, new_df], ignore_index=True)
-        updated_df.to_csv(old_file, index=False)
-        os.remove(new_file)
-        print(f"Updated {data_type} data in {old_file}.")
 
 
 def update_player_data(months_back=3):
@@ -79,26 +35,8 @@ def update_player_data(months_back=3):
     # Run the scraper
     scrapper.scrape_and_clean()
 
-    # Update existing files with new data
-    update_existing_data_files()
-
+    clean_files()
     UpdatePlayerForm()
-    print("Updated player forms Successfully!! Now starting filling missing values")
-
-    assign_mean_values(
-        "data/recent_averages/player_form_scores.csv",
-        "data/recent_averages/player_form_scores_final.csv",
-    )
-    print(
-        "Assigned mean values to missing cells successfully!now merginf the recent form and the previous 2021-2024 form!!!"
-    )
-
-    csv1 = pd.read_csv("data/previous_form.csv")
-    csv2 = pd.read_csv("data/recent_averages/player_form_scores_final.csv")
-
-    merge(csv1, csv2)
-    print(
-        "Successfully completed the merge of historic and recent data the data is now ready to be worked on !"
-    )
+    merge()
 
     print("IPL data update completed successfully.")

@@ -3,10 +3,8 @@ import pulp
 
 
 def optimize_fantasy_team():
-    # Load ground dataframe to display available grounds
     ground_df = pd.read_csv("data/ground.csv")
 
-    # Display available grounds
     print("Grounds : ")
     for i, r in ground_df.iterrows():
         print(f"{i + 1}. {r['Ground']} ({r['City']})")
@@ -176,12 +174,3 @@ def optimize_fantasy_team():
                 )
 
     return selected_11[["Player", "Team", "Player Type", "Score", "Role_In_Team"]]
-
-
-if __name__ == "__main__":
-    best_team = optimize_fantasy_team()
-    if best_team is not None:
-        print("\nOptimal Fantasy Team:")
-        print(best_team)
-    else:
-        print("No valid team could be formed. Check player roles and constraints.")

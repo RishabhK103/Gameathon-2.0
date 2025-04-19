@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from scipy.stats import percentileofscore
+from src.scrapper.update_form import assign_mean_values
 import os
 import sys
 
@@ -271,11 +272,17 @@ class PlayerForm:
         print("\n\nIPL form scores calculated successfully")
         form_scores.to_csv(self.output_file, index=False)
 
+        assign_mean_values(
+            "data/recent_averages/player_form_scores.csv",
+            "data/recent_averages/player_form_scores_final.csv",
+        )
+
 
 def UpdatePlayerForm():
     try:
         preprocessor = PlayerForm()
         preprocessor.run()
+
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
         sys.exit(1)
