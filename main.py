@@ -1,9 +1,9 @@
-from src.team_build import optimize_fantasy_team
-from src.update import update_player_data
+from src.optimizer import optimize_fantasy_team
+from src.data import preprocess_ipl_data
 
 
 def main():
-    update_player_data(3)
+    preprocess_ipl_data()
 
     best_team = optimize_fantasy_team()
     if best_team is not None:
