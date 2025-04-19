@@ -1,9 +1,8 @@
 import click
 import pandas as pd
-from colorama import Fore, Style, init
-from src.update import update_player_data
 
-init(autoreset=True)
+from src.update import update_player_data
+from src.team_build import build_team
 
 
 def summarize_squad_data(file_path):
@@ -13,7 +12,7 @@ def summarize_squad_data(file_path):
     player_types = df["Player Type"].value_counts()
     print(f"\nTotal number of players: {total_players}")
     print(f"Playing players: {playing_players}")
-    print(f"\n{player_types.to_string()}{Style.RESET_ALL}")
+    print(f"\n{player_types.to_string()}")
     return df["Team"].unique()
 
 

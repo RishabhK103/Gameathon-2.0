@@ -74,9 +74,9 @@ class Scrapper:
             ),
         }
         self.output_files = {
-            "batting": "data/recent_averages/batting_averages.csv",
-            "bowling": "data/recent_averages/bowling_averages.csv",
-            "fielding": "data/recent_averages/fielding_averages.csv",
+            "batting": "data/recent_averages/batting.csv",
+            "bowling": "data/recent_averages/bowling.csv",
+            "fielding": "data/recent_averages/fielding.csv",
         }
 
     def clean_data(self, df, data_type):
@@ -125,12 +125,6 @@ class Scrapper:
     def scrape_and_clean(self):
         for file_path in self.output_files.values():
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
-
-        proceed = input("\nDoes the test data look correct? (yes/no): ").strip().lower()
-        if proceed != "yes":
-            print("Aborting full scrape.")
-            driver.quit()
-            return
 
         print("\nProceeding with full scrape...")
         for data_type, _ in self.base_urls.items():

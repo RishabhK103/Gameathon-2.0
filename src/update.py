@@ -93,7 +93,7 @@ def update_player_data(months_back=3):
         "Assigned mean values to missing cells successfully!now merginf the recent form and the previous 2021-2024 form!!!"
     )
 
-    csv1 = pd.read_csv("data/recent_averages/player_form_last3.csv")
+    csv1 = pd.read_csv("data/previous_form.csv")
     csv2 = pd.read_csv("data/recent_averages/player_form_scores_final.csv")
 
     merge(csv1, csv2)

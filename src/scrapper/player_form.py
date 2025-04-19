@@ -7,12 +7,12 @@ import sys
 
 class PlayerForm:
     def __init__(self):
-        self.bowling_file = "data/recent_averages/bowling_recent_averages.csv"
-        self.batting_file = "data/recent_averages/batting_recent_averages.csv"
-        self.fielding_file = "data/recent_averages/fielding_recent_averages.csv"
+        self.bowling_file = "data/recent_averages/bowling.csv"
+        self.batting_file = "data/recent_averages/batting.csv"
+        self.fielding_file = "data/recent_averages/fielding.csv"
 
         self.output_file = "data/recent_averages/player_form_scores.csv"
-        self.squad_file = "data/recent_averages/squad.csv"
+        self.squad_file = "data/squad.csv"
 
         self.previous_months = 36
         self.decay_rate = 0.1
