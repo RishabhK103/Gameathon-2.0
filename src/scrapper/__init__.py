@@ -6,27 +6,13 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from webdriver_manager.chrome import ChromeDriverManager
 import os
 import time
 from selenium.common.exceptions import TimeoutException
 from datetime import datetime
 import urllib3.exceptions
 
-# Browser and driver setup
-brave_path = "/usr/bin/brave"
-chrome_driver_path = "/usr/bin/chromedriver"
-options = Options()
-options.binary_location = brave_path
-options.add_argument(
-    "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-)
-options.add_argument("--headless")
-options.add_argument("--no-sandbox")
-options.add_argument("--disable-dev-shm-usage")
-service = Service(chrome_driver_path)
-driver = webdriver.Chrome(service=service, options=options)
-
-driver.set_page_load_timeout(600)
 
 
 class Scrapper:
@@ -78,6 +64,37 @@ class Scrapper:
             "bowling": "data/recent_averages/bowling.csv",
             "fielding": "data/recent_averages/fielding.csv",
         }
+        # Initialize WebDriver
+        self.driver = self._setup_driver()
+
+    def _setup_driver(self):
+        """Set up the Selenium WebDriver with Brave browser."""
+        brave_path = "/usr/bin/brave-browser"
+        if not os.path.exists(brave_path):
+            raise FileNotFoundError(f"Brave browser not found at {brave_path}")
+
+        options = Options()
+        options.binary_location = brave_path
+        options.add_argument(
+            "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        )
+        options.add_argument("--headless")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+
+        # Use webdriver-manager to handle ChromeDriver
+        try:
+            service = Service(ChromeDriverManager(driver_version="135.0.7049.100").install())
+            driver = webdriver.Chrome(service=service, options=options)
+            driver.set_page_load_timeout(600)
+            return driver
+        except Exception as e:
+            raise RuntimeError(f"Failed to initialize WebDriver: {e}")
+
+    def __del__(self):
+        """Ensure the driver is closed when the object is destroyed."""
+        if hasattr(self, 'driver') and self.driver:
+            self.driver.quit()
 
     def clean_data(self, df, data_type):
         if df is None or df.empty:
@@ -193,8 +210,8 @@ class Scrapper:
                         print(
                             f"Scraping {data_type} data for {team}, page 1 to check pagination..."
                         )
-                        driver.get(url)
-                        WebDriverWait(driver, 30).until(
+                        self.driver.get(url)
+                        WebDriverWait(self.driver, 30).until(
                             EC.presence_of_element_located(
                                 (
                                     By.XPATH,
@@ -205,7 +222,7 @@ class Scrapper:
 
                         total_pages = 1
                         try:
-                            WebDriverWait(driver, 10).until(
+                            WebDriverWait(self.driver, 10).until(
                                 EC.presence_of_element_located(
                                     (
                                         By.XPATH,
@@ -213,7 +230,7 @@ class Scrapper:
                                     )
                                 )
                             )
-                            last_page_link = driver.find_element(
+                            last_page_link = self.driver.find_element(
                                 By.XPATH,
                                 "//a[contains(@class, 'PaginationLink') and contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'last')]",
                             )
@@ -240,8 +257,8 @@ class Scrapper:
                             print(
                                 f"Scraping {data_type} data for {team}, page {page}..."
                             )
-                            driver.get(url)
-                            table = WebDriverWait(driver, 30).until(
+                            self.driver.get(url)
+                            table = WebDriverWait(self.driver, 30).until(
                                 EC.presence_of_element_located(
                                     (
                                         By.XPATH,
@@ -302,5 +319,3 @@ class Scrapper:
 
             df.to_csv(output_file, index=False)
             print(f"Saved cleaned {data_type} data to {output_file}")
-
-        driver.quit()

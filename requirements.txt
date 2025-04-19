@@ -1,7 +1,10 @@
-requests
 DateTime
-pandas
-numpy
 scipy
 PuLP
+requests
+beautifulsoup4
+pandas
+numpy
 selenium
+lxml
+webdriver-manager
