@@ -22,7 +22,7 @@ def optimize_fantasy_team():
 
     # Load other dataframes
     squad_df = pd.read_csv("data/SquadPlayerNames.csv")
-    form_df = pd.read_csv("data/merged_output.csv")
+    form_df = pd.read_csv("data/recent_averages/merged_output.csv")
 
     # Cleaning dataframes (removing unimportant values)
     form_df.drop(

@@ -34,3 +34,9 @@ def merge(csv1, csv2):
 
     print("saving to the merger_ouput.csv file ........")
     final_df.to_csv("data/recent_averages/merged_output.csv", index=False)
+
+import pandas as pd
+csv1 = pd.read_csv("data/previous_form.csv")
+csv2 = pd.read_csv("data/recent_averages/player_form_scores_final.csv")
+
+merge(csv1, csv2)
