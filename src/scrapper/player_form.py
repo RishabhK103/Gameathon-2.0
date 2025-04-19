@@ -1,20 +1,19 @@
 import pandas as pd
 import numpy as np
 from scipy.stats import percentileofscore
-from colorama import Fore, init
 import os
 import sys
-
-init(autoreset=True)
 
 
 class PlayerForm:
     def __init__(self):
-        self.bowling_file = "../data/ipl/bowling_recent_averages.csv"
-        self.batting_file = "../data/ipl/batting_recent_averages.csv"
-        self.fielding_file = "../data/ipl/fielding_recent_averages.csv"
-        self.output_file = "../data/ipl/player_form_scores.csv"
-        self.squad_file = "../data/ipl/squad.csv"
+        self.bowling_file = "data/recent_averages/bowling_recent_averages.csv"
+        self.batting_file = "data/recent_averages/batting_recent_averages.csv"
+        self.fielding_file = "data/recent_averages/fielding_recent_averages.csv"
+
+        self.output_file = "data/recent_averages/player_form_scores.csv"
+        self.squad_file = "data/recent_averages/squad.csv"
+
         self.previous_months = 36
         self.decay_rate = 0.1
         self.key_cols = ["Player", "Team", "Span", "Mat"]
@@ -25,7 +24,7 @@ class PlayerForm:
             batting = pd.read_csv(self.batting_file)
             fielding = pd.read_csv(self.fielding_file)
         except Exception as e:
-            print(Fore.RED + f"Error reading CSV files: {e}")
+            print(f"Error reading CSV files: {e}")
             sys.exit(1)
 
         bowling = bowling.dropna(axis=1, how="all")
@@ -77,7 +76,7 @@ class PlayerForm:
             squad_df = pd.read_csv(self.squad_file)
             squad_df["ESPN player name"] = squad_df["ESPN player name"].str.strip()
         except Exception as e:
-            print(Fore.RED + f"Error reading squad CSV file: {e}")
+            print(f"Error reading squad CSV file: {e}")
             sys.exit(1)
 
         valid_players = squad_df["ESPN player name"].dropna().tolist()
@@ -246,7 +245,7 @@ class PlayerForm:
         for _, row in player_months.iterrows():
             if row["Months of Data"] < 3:
                 print(
-                    f"{Fore.YELLOW}{row['Months of Data'] + 1}\t"
+                    f"{row['Months of Data'] + 1}\t"
                     f"{row['Oldest Date'].strftime('%b %y')} - "
                     f"{row['Latest Date'].strftime('%b %y')} \t"
                     f"{row['Player']} ({row['Team']})"
@@ -265,11 +264,11 @@ class PlayerForm:
         if not os.path.exists(os.path.dirname(self.output_file)):
             os.makedirs(os.path.dirname(self.output_file))
 
-        print(Fore.CYAN + "Starting IPL data preprocessing...")
+        print("Starting IPL data preprocessing...")
         df = self.load_data()
         combined_df = self.include_all_squad_players(df)
         form_scores = self.calculate_form(combined_df)
-        print(Fore.GREEN + "\n\nIPL form scores calculated successfully")
+        print("\n\nIPL form scores calculated successfully")
         form_scores.to_csv(self.output_file, index=False)
 
 
@@ -278,12 +277,5 @@ def UpdatePlayerForm():
         preprocessor = PlayerForm()
         preprocessor.run()
     except Exception as e:
-        print(Fore.RED + f"An unexpected error occurred: {e}")
-        sys.exit(1)
-
-
-if __name__ == "__main__":
-    try:
-        UpdatePlayerForm()
-    except KeyboardInterrupt:
+        print(f"An unexpected error occurred: {e}")
         sys.exit(1)

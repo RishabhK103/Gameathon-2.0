@@ -74,9 +74,9 @@ class Scrapper:
             ),
         }
         self.output_files = {
-            "batting": "../data/ipl/batting_averages.csv",
-            "bowling": "../data/ipl/bowling_averages.csv",
-            "fielding": "../data/ipl/fielding_averages.csv",
+            "batting": "data/recent_averages/batting_averages.csv",
+            "bowling": "data/recent_averages/bowling_averages.csv",
+            "fielding": "data/recent_averages/fielding_averages.csv",
         }
 
     def clean_data(self, df, data_type):
@@ -310,9 +310,3 @@ class Scrapper:
             print(f"Saved cleaned {data_type} data to {output_file}")
 
         driver.quit()
-
-
-# Example usage (commented out since update.py will handle instantiation)
-# spanmin1, spanmax1 = "01+Jan+2025", "31+Mar+2025"
-# scrapper = Scrapper(spanmin1, spanmax1)
-# scrapper.scrape_and_clean()

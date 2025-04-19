@@ -33,4 +33,4 @@ def merge(csv1, csv2):
     ]
 
     print("saving to the merger_ouput.csv file ........")
-    final_df.to_csv("../data/ipl/merged_output.csv", index=False)
+    final_df.to_csv("../data/recent_averages/merged_output.csv", index=False)
