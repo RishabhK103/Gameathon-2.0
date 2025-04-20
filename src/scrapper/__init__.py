@@ -1,18 +1,11 @@
 import pandas as pd
 import numpy as np
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
+import requests
+from bs4 import BeautifulSoup
 import os
 import time
-from selenium.common.exceptions import TimeoutException
 from datetime import datetime
-import urllib3.exceptions
-
+from tqdm import tqdm
 
 
 class Scrapper:
@@ -29,72 +22,25 @@ class Scrapper:
             "GT": "6904",
             "LSG": "6903",
         }
-        self.spanmin1 = spanmin1  # e.g., "01+Jan+2025"
-        self.spanmax1 = spanmax1  # e.g., "31+Mar+2025"
+        self.spanmin1 = spanmin1
+        self.spanmax1 = spanmax1
         self.url_template = (
             "https://stats.espncricinfo.com/ci/engine/stats/index.html?"
             "class=6;page={page};spanmax1={spanmax1};spanmin1={spanmin1};"
             "spanval1=span;team={team};template=results;type={type}"
         )
-        self.base_urls = {
-            "bowling": self.url_template.format(
-                page=1,
-                spanmax1=self.spanmax1,
-                spanmin1=self.spanmin1,
-                team="4340",
-                type="bowling",
-            ),
-            "batting": self.url_template.format(
-                page=1,
-                spanmax1=self.spanmax1,
-                spanmin1=self.spanmin1,
-                team="4340",
-                type="batting",
-            ),
-            "fielding": self.url_template.format(
-                page=1,
-                spanmax1=self.spanmax1,
-                spanmin1=self.spanmin1,
-                team="4340",
-                type="fielding",
-            ),
-        }
+        self.data_types_to_scrape = ["batting", "bowling"]
         self.output_files = {
-            "batting": "data/recent_averages/batting.csv",
-            "bowling": "data/recent_averages/bowling.csv",
-            "fielding": "data/recent_averages/fielding.csv",
+            "batting": "data/recent_averages/batting_data.csv",
+            "bowling": "data/recent_averages/bowling_data.csv",
         }
-        # Initialize WebDriver
-        self.driver = self._setup_driver()
-
-    def _setup_driver(self):
-        """Set up the Selenium WebDriver with Brave browser."""
-        brave_path = "/usr/bin/brave-browser"
-        if not os.path.exists(brave_path):
-            raise FileNotFoundError(f"Brave browser not found at {brave_path}")
-
-        options = Options()
-        options.binary_location = brave_path
-        options.add_argument(
-            "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        self.session = requests.Session()
+        self.session.headers.update(
+            {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
         )
-        options.add_argument("--headless")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-
-        # Use webdriver-manager to handle ChromeDriver
-        try:
-            service = Service(ChromeDriverManager(driver_version="135.0.7049.100").install())
-            driver = webdriver.Chrome(service=service, options=options)
-            driver.set_page_load_timeout(600)
-            return driver
-        except Exception as e:
-            raise RuntimeError(f"Failed to initialize WebDriver: {e}")
-
-    def __del__(self):
-        """Ensure the driver is closed when the object is destroyed."""
-        if hasattr(self, 'driver') and self.driver:
-            self.driver.quit()
+        self.request_timeout = 60
 
     def clean_data(self, df, data_type):
         if df is None or df.empty:
@@ -104,6 +50,7 @@ class Scrapper:
             df.replace(["-", "", " "], np.nan, inplace=True)
             if "Player" in df.columns:
                 df["Player"] = df["Player"].str.strip()
+
             if data_type == "batting":
                 if "HS" in df.columns:
                     df["HS"] = df["HS"].str.replace("*", "", regex=False)
@@ -123,29 +70,57 @@ class Scrapper:
             elif data_type == "bowling":
                 int_cols = ["Mat", "Inns", "Mdns", "Runs", "Wkts", "4", "5"]
                 float_cols = ["Ave", "Econ", "SR"]
-            elif data_type == "fielding":
-                int_cols = ["Mat", "Inns", "Dis", "Ct", "St", "Ct Wk", "Ct Fi", "MD"]
-                float_cols = ["D/I"]
             else:
-                int_cols = []
-                float_cols = []
+                print(f"Warning: Unknown data_type '{data_type}' in clean_data")
+                return df
+
             for col in int_cols:
                 if col in df.columns:
                     df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int64")
             for col in float_cols:
                 if col in df.columns:
                     df[col] = pd.to_numeric(df[col], errors="coerce").astype(float)
+
         except Exception as e:
             print(f"Error cleaning data for {data_type}: {e}")
         return df
 
-    def scrape_and_clean(self):
-        for file_path in self.output_files.values():
-            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    def find_data_table(self, soup):
+        """Finds the correct stats table (the one with 'Overall Figures' caption)."""
+        tables = soup.find_all("table", class_="engineTable")
+        for table in tables:
+            caption = table.find("caption")  # Find any caption tag within the table
+            # Now check if the found caption exists and has the correct text
+            if caption and "overall figures" in caption.get_text(strip=True).lower():
+                return table  # Return the table if the caption text matches
+        return None  # Return None if no matching table/caption is found
 
-        print("\nProceeding with full scrape...")
-        for data_type, _ in self.base_urls.items():
+    def scrape_and_clean(self):
+        # Ensure base directory exists *before* the loop
+        try:
+            # Get dir from the first defined output file path
+            base_dir = os.path.dirname(next(iter(self.output_files.values())))
+            # Create directory if it doesn't exist
+            os.makedirs(base_dir, exist_ok=True)
+            print(f"Ensured output directory exists: {os.path.abspath(base_dir)}")
+        except Exception as e:
+            print(
+                f"CRITICAL ERROR: Could not create output directory '{base_dir}'. Error: {e}"
+            )
+            print("Please check permissions and path. Exiting.")
+            return  # Stop execution if directory can't be created
+
+        print(
+            "\nProceeding with scrape for Batting and Bowling using Requests and BeautifulSoup..."
+        )
+
+        # Outer tqdm for data types
+        for data_type in tqdm(self.data_types_to_scrape, desc="Data Types"):
             output_file = self.output_files[data_type]
+            absolute_output_path = os.path.abspath(
+                output_file
+            )  # Get absolute path for clarity
+
             if data_type == "batting":
                 headers = [
                     "Team",
@@ -181,141 +156,232 @@ class Scrapper:
                     "4",
                     "5",
                 ]
-            else:  # Fielding
-                headers = [
-                    "Team",
-                    "Player",
-                    "Mat",
-                    "Inns",
-                    "Dis",
-                    "Ct",
-                    "St",
-                    "Ct Wk",
-                    "Ct Fi",
-                    "MD",
-                    "D/I",
-                ]
+            else:
+                print(f"Skipping unknown data type: {data_type}")
+                continue
+
             all_data = []
-            for team, code in self.ipl_teams_codes.items():
+            print(f"\n--- Starting scrape for {data_type.capitalize()} ---")
+
+            # Team progress bar
+            team_pbar = tqdm(self.ipl_teams_codes.items(), desc=f"Teams ({data_type})")
+
+            # --- Scraping loop for teams and pages ---
+            for team, code in team_pbar:
+                team_pbar.set_description(f"Team: {team}")
                 retries = 3
-                for attempt in range(retries):
-                    try:
-                        url = self.url_template.format(
-                            page=1,
-                            spanmax1=self.spanmax1,
-                            spanmin1=self.spanmin1,
-                            team=code,
-                            type=data_type,
-                        )
-                        print(
-                            f"Scraping {data_type} data for {team}, page 1 to check pagination..."
-                        )
-                        self.driver.get(url)
-                        WebDriverWait(self.driver, 30).until(
-                            EC.presence_of_element_located(
-                                (
-                                    By.XPATH,
-                                    "//table[@class='engineTable'][.//caption[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'overall figures')]]",
-                                )
-                            )
-                        )
+                current_page = 1
+                total_pages = 1
+                first_page_processed = False
 
-                        total_pages = 1
+                # Initialize page progress bar (will update total later)
+                page_pbar = tqdm(total=1, desc=f"Pages for {team}", leave=False)
+
+                while current_page <= total_pages:
+                    attempt = 0
+                    success = False
+                    page_pbar.set_description(f"Page {current_page}/{total_pages}")
+
+                    while attempt < retries and not success:
                         try:
-                            WebDriverWait(self.driver, 10).until(
-                                EC.presence_of_element_located(
-                                    (
-                                        By.XPATH,
-                                        "//a[contains(@class, 'PaginationLink')]",
-                                    )
-                                )
-                            )
-                            last_page_link = self.driver.find_element(
-                                By.XPATH,
-                                "//a[contains(@class, 'PaginationLink') and contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'last')]",
-                            )
-                            last_page_url = last_page_link.get_attribute("href")
-                            total_pages = int(
-                                last_page_url.split("page=")[1].split(";")[0]
-                            )
-                            print(
-                                f"Found pagination for {team} ({data_type}): {total_pages} pages"
-                            )
-                        except Exception:
-                            print(
-                                f"No pagination found for {team} ({data_type}), assuming 1 page."
-                            )
-
-                        for page in range(1, total_pages + 1):
                             url = self.url_template.format(
-                                page=page,
+                                page=current_page,
                                 spanmax1=self.spanmax1,
                                 spanmin1=self.spanmin1,
                                 team=code,
                                 type=data_type,
                             )
-                            print(
-                                f"Scraping {data_type} data for {team}, page {page}..."
+
+                            response = self.session.get(
+                                url, timeout=self.request_timeout
                             )
-                            self.driver.get(url)
-                            table = WebDriverWait(self.driver, 30).until(
-                                EC.presence_of_element_located(
-                                    (
-                                        By.XPATH,
-                                        "//table[@class='engineTable'][.//caption[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'overall figures')]]",
-                                    )
+                            response.raise_for_status()
+                            page_content = response.text
+
+                            soup = BeautifulSoup(page_content, "html.parser")
+
+                            if "No results available" in page_content.lower():
+                                if current_page == 1:
+                                    total_pages = 0
+                                else:
+                                    total_pages = current_page - 1
+                                success = True
+                                break
+
+                            table = self.find_data_table(soup)
+                            if not table:
+                                raise ValueError(
+                                    f"Data table structure not found and 'No results available' message absent."
                                 )
-                            )
-                            rows = table.find_elements(By.TAG_NAME, "tr")[1:]
+
+                            if not first_page_processed:
+                                try:
+                                    pagination_div = soup.find(
+                                        "div", class_="pagination"
+                                    )
+                                    if pagination_div:
+                                        last_page_link = pagination_div.find(
+                                            "a",
+                                            string=lambda t: t and "last" in t.lower(),
+                                        )
+                                        if (
+                                            last_page_link
+                                            and "href" in last_page_link.attrs
+                                        ):
+                                            last_page_url = last_page_link["href"]
+                                            total_pages = int(
+                                                last_page_url.split("page=")[1].split(
+                                                    ";"
+                                                )[0]
+                                            )
+                                        else:
+                                            total_pages = current_page
+                                    else:
+                                        total_pages = current_page
+                                except (
+                                    AttributeError,
+                                    IndexError,
+                                    ValueError,
+                                    TypeError,
+                                ) as e:
+                                    total_pages = current_page
+                                finally:
+                                    total_pages = max(total_pages, current_page)
+                                    first_page_processed = True
+                                    # Update total in progress bar once we know it
+                                    page_pbar.total = total_pages
+                                    page_pbar.refresh()
+
+                            rows = table.find_all("tr", class_="data1")
+                            if not rows:
+                                rows = table.find_all("tr")[1:]
+
+                            rows_processed_this_page = 0
+                            # Using tqdm for rows processing
                             for row in rows:
-                                cells = row.find_elements(By.TAG_NAME, "td")
+                                cells = row.find_all("td")
                                 if not cells:
                                     continue
+
+                                # Extract text, stripping whitespace
                                 cell_data = [
-                                    cell.text
-                                    for cell in cells
-                                    if cell.text.strip() != ""
+                                    cell.get_text(strip=True) for cell in cells
                                 ]
-                                if not cell_data:
+
+                                # Skip rows that might be empty or separators
+                                if not any(cell_data):
                                     continue
+
+                                # --- FIX: Handle potential extra column ---
+                                expected_data_columns = (
+                                    len(headers) - 1
+                                )  # Number of columns expected from HTML table
+
+                                if len(cell_data) > expected_data_columns:
+                                    # Slice off extra column(s) assumed to be at the end
+                                    cell_data = cell_data[:expected_data_columns]
+                                # --- END FIX ---
+
+                                # Now create the final row data including the team
                                 row_data = [team] + cell_data
+
+                                # Check length against headers *after* potential slicing
                                 if len(row_data) != len(headers):
-                                    print(
-                                        f"Column mismatch for {team} ({data_type}, page {page}): expected {len(headers)} columns, got {len(row_data)}"
-                                    )
-                                    print(f"Row data: {row_data}")
-                                    continue
+                                    continue  # Skip this row if mismatch still occurs
+
+                                # Append the correctly formatted row
                                 all_data.append(row_data)
-                        print(
-                            f"Scraped {data_type} averages for {team}: {total_pages} pages"
-                        )
-                        break
-                    except (TimeoutException, urllib3.exceptions.ReadTimeoutError) as e:
-                        print(
-                            f"Timeout for {team} ({data_type}) on attempt {attempt + 1}/{retries}: {e}"
-                        )
-                        if attempt == retries - 1:
-                            print(
-                                f"Failed to scrape {data_type} data for {team} after {retries} attempts."
-                            )
-                        time.sleep(5)
-                    except Exception as e:
-                        print(f"Error scraping {team} ({data_type}): {e}")
-                        break
-                    time.sleep(1)
+                                rows_processed_this_page += 1
 
+                            success = True
+
+                        except requests.exceptions.Timeout as e:
+                            attempt += 1
+                            if attempt == retries:
+                                total_pages = current_page - 1
+                                # Update progress bar
+                                page_pbar.total = total_pages
+                                page_pbar.refresh()
+                            else:
+                                time.sleep(5)
+                        except requests.exceptions.RequestException as e:
+                            attempt += 1
+                            if attempt == retries:
+                                total_pages = current_page - 1
+                                # Update progress bar
+                                page_pbar.total = total_pages
+                                page_pbar.refresh()
+                            else:
+                                time.sleep(5)
+                        except Exception as e:
+                            total_pages = current_page - 1
+                            # Update progress bar
+                            page_pbar.total = total_pages
+                            page_pbar.refresh()
+                            break  # Exit retry loop for this page
+
+                    if not success:
+                        break  # Exit the while loop for pages
+
+                    current_page += 1
+                    page_pbar.update(1)
+                    if current_page <= total_pages:
+                        time.sleep(1)  # Be polite between page requests
+
+                # Close the page progress bar when done with this team
+                page_pbar.close()
+                time.sleep(1)  # Delay between teams
+            # --- End of scraping loop ---
+
+            # --- DataFrame creation and saving ---
             if not all_data:
-                print(f"No data scraped for {data_type}")
-                continue
+                print(
+                    f"No data collected for {data_type} across all teams. Skipping file save."
+                )
+                continue  # Skip to the next data_type
 
+            print(f"Creating DataFrame for {data_type} with {len(all_data)} rows.")
             df = pd.DataFrame(all_data, columns=headers)
-            df = self.clean_data(df, data_type)
 
-            # Add "Span" column using the provided dates
-            start_dt = datetime.strptime(self.spanmin1.replace("+", " "), "%d %b %Y")
-            end_dt = datetime.strptime(self.spanmax1.replace("+", " "), "%d %b %Y")
-            span_value = f"{start_dt.year}-{end_dt.year}"
-            df["Span"] = span_value
+            # Show progress during data cleaning
+            with tqdm(total=1, desc=f"Cleaning {data_type} data") as clean_pbar:
+                df = self.clean_data(df, data_type)
+                clean_pbar.update(1)
 
-            df.to_csv(output_file, index=False)
-            print(f"Saved cleaned {data_type} data to {output_file}")
+            # Check if DataFrame is empty *after* cleaning
+            if df.empty:
+                print(
+                    f"DataFrame for {data_type} is empty after cleaning. Skipping file save."
+                )
+                continue  # Skip to the next data_type
+
+            # Add Span column
+            try:
+                start_dt = datetime.strptime(
+                    self.spanmin1.replace("+", " "), "%d %b %Y"
+                )
+                end_dt = datetime.strptime(self.spanmax1.replace("+", " "), "%d %b %Y")
+                span_value = f"{start_dt.year}-{end_dt.year}"
+                df["Span"] = span_value
+            except ValueError as e:
+                print(
+                    f"Warning: Error parsing date strings '{self.spanmin1}', '{self.spanmax1}': {e}. Cannot add Span column."
+                )
+
+            try:
+                with tqdm(total=1, desc=f"Saving {data_type} data") as save_pbar:
+                    print(
+                        f"Saving {data_type} data ({df.shape[0]} rows) to: {absolute_output_path}"
+                    )
+                    df.to_csv(output_file, index=False)
+                    save_pbar.update(1)
+                print(f"Successfully saved cleaned {data_type} data to {output_file}")
+            except IOError as e:
+                print(
+                    f"!!! I/O ERROR saving {data_type} data to {absolute_output_path}: {e}"
+                )
+                print("   Please check file permissions and if the path is valid.")
+            except Exception as e:
+                print(
+                    f"!!! UNEXPECTED ERROR saving {data_type} data to {absolute_output_path}: {e}"
+                )

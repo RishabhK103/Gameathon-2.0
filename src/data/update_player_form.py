@@ -13,11 +13,6 @@ def update_player_data(months_back=3):
 
     scrapper = Scrapper(spanmin1, spanmax1)
 
-    scrapper.output_files = {
-        "batting": "data/recent_averages/batting_recent_averages_temp.csv",
-        "bowling": "data/recent_averages/bowling_recent_averages_temp.csv",
-        "fielding": "data/recent_averages/fielding_recent_averages_temp.csv",
-    }
     for file_path in scrapper.output_files.values():
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
 

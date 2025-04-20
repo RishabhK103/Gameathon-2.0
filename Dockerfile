@@ -1,34 +1,14 @@
-
 FROM python:3.10-slim
+
+LABEL team="Sinister 6"
+LABEL version="0.1.0"
+LABEL description="Optimisitation algorithm algorithm to build a fantacy cricket team for IPL 2025, FIFS gamethon"
+LABEL github="https://github.com/RishabhK103/Gameathon-2.0"
+
 WORKDIR /app
 
-# Install system dependencies for Selenium and Brave Browser
-RUN apt-get update && apt-get install -y \
-    wget \
-    gnupg \
-    curl \
-    apt-transport-https \
-    ca-certificates \
-    --no-install-recommends \
-    && rm -rf /var/lib/apt/lists/*
+COPY . /app
 
-# Set up Brave Browser repository
-RUN curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg \
-    && echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main" | tee /etc/apt/sources.list.d/brave-browser-release.list
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Update package lists and install Brave Browser
-RUN apt-get update && apt-get install -y brave-browser \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY . .
-
-RUN pip install --no-cache-dir \
-    -r requirements.txt
-
-
-
-# Create necessary directories
-RUN mkdir -p data/recent_averages
-
-# Command to run when container starts
 CMD ["python", "main.py"]

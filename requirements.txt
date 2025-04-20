@@ -5,6 +5,4 @@ requests
 beautifulsoup4
 pandas
 numpy
-selenium
-lxml
-webdriver-manager
+tqdm
