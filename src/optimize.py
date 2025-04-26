@@ -7,7 +7,7 @@ def optimize_fantasy_team():
     ground_file = "data/ground.csv"
     squad_file = "data/SquadPlayerNames.csv" # Assuming this contains IsPlaying, lineupOrder etc.
     # Use the output file from the previous script
-    form_file = "data/recent_averages/player_form_scores.csv"
+    form_file = "data/recent_averages/merged_output.csv"
 
     # --- Check if input files exist ---
     required_files = [ground_file, squad_file, form_file]
