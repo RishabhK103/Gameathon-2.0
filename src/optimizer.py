@@ -24,7 +24,7 @@ def optimize_fantasy_team():
 
     # Cleaning dataframes (removing unimportant values)
     form_df.drop(
-        ["Fielding Form", "Credits", "Player Type", "Team"], axis=1, inplace=True
+        [ "Credits", "Player Type", "Team"], axis=1, inplace=True
     )
     squad_df.drop("Credits", axis=1, inplace=True)
 

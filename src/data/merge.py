@@ -21,17 +21,17 @@ def merge():
         weight_prev * merged["Bowling Form_csv1"]
         + weight_recent * merged["Bowling Form_csv2"]
     )
-    merged["Fielding Form"] = (
-        weight_prev * merged["Fielding Form_csv1"]
-        + weight_recent * merged["Fielding Form_csv2"]
-    )
+    # merged["Fielding Form"] = (
+    #     weight_prev * merged["Fielding Form_csv1"]
+    #     + weight_recent * merged["Fielding Form_csv2"]
+    # )
 
     final_df = merged[
         [
             "Player",
             "Batting Form",
             "Bowling Form",
-            "Fielding Form",
+            #"Fielding Form",
             "Credits",
             "Player Type",
             "Team",
