@@ -123,7 +123,7 @@ def optimize_fantasy_team():
     prob += pulp.lpSum([x[i] * team_df.loc[i, "Score"] for i in players])
 
     # Constraints
-    prob += pulp.lpSum([x[i] for i in players]) == 11, "Total_Players"
+    prob += pulp.lpSum([x[i] for i in players]) == 20, "Total_Players"
     prob += pulp.lpSum([x[i] for i in batters.index]) >= 1, "Min_Batters"
     prob += pulp.lpSum([x[i] for i in bowlers.index]) >= 1, "Min_Bowlers"
     prob += (

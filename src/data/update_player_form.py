@@ -1,6 +1,5 @@
 import os
 import pandas as pd
-
 from src.utils import get_date_range
 from src.scrapper import Scrapper
 

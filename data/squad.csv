@@ -24,6 +24,8 @@ Credits,Player Type,Bowler Type,Player Name,Team,ESPN player name
 8.0,ALL,SPIN,Ravichandran Ashwin,CHE,R Ashwin
 8.5,ALL,SPIN,Ravindra Jadeja,CHE,RA Jadeja
 7.0,WK,-,MS Dhoni,CHE,MS Dhoni
+6.5,BAT,-,Dewald Brevis,CHE,Dewald Brevis
+6.5,BAT,-,Ayush Mhatre,CHE,A Mhatre
 5.0,ALL,-,Madhav Tiwari,DC,–
 5.5,ALL,-,Manvanth Kumar L,DC,-
 5.5,BOWL,-,Tripurana Vijay,DC,-
@@ -46,6 +48,7 @@ Credits,Player Type,Bowler Type,Player Name,Team,ESPN player name
 7.0,BAT,-,Karun Nair,DC,KK Nair
 8.5,BAT,-,Faf du Plessis,DC,F du Plessis
 8.5,BOWL,PACE,Mitchell Starc,DC,MA Starc
+6.5,BOWL,PACE,Mustafizur Rahman,DC,M Rahman
 5.5,BOWL,-,Gurnoor Brar Singh,GT,Gurnoor Brar
 6.0,ALL,-,Nishant Sindhu,GT,N Sindhu
 5.5,ALL,PACE,Arshad Khan,GT,Arshad Khan
@@ -227,3 +230,16 @@ Credits,Player Type,Bowler Type,Player Name,Team,ESPN player name
 8.5,BOWL,PACE,Pat Cummins,SRH,PJ Cummins
 8.5,BOWL,PACE,Mohammed Shami,SRH,Mohammed Shami
 7.0,BOWL,PACE,Jaydev Unadkat,SRH,JD Unadkat
+5.0,WK,-,Urvil Patel,CHE,UM Patel
+6.0,BAT,-,Sediqullah Atal,DC,Sediqullah Atal
+7.0,WK,-,Kusal Mendis,GT,BKG Mendis
+7.0,ALL,-,Marcus Stoinis,PBKS,MP Stoinis
+6.0,ALL,-,Mitchell Owen,PBKS,MB Owen
+7.0,BOWL,PACE,Kyle Jamieson,PBKS,KA Jamieson
+6.5,BAT,-,Mayank Agarwal,RCB,MA Agarwal
+6.0,WK,-,Lhuan-dre Pretorius,RR,LG Pretorius
+7.0,BOWL,PACE,Nandre Burger,RR,N Burger
+7.0,BOWL,PACE,William O'Rourke,LSG,W O'Rourke
+5.0,BOWL,SPIN,Raghu Sharma,MI,RS Sharma
+5.0,BAT,-,Smaran-R,SRH,R Smaran
+5.0,ALL,-,Harsh Dubey,SRH,HS Dubey
